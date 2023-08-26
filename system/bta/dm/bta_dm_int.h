@@ -271,12 +271,25 @@ struct tBTA_DM_PEER_DEVICE {
   void reset_av_active() { info &= ~BTA_DM_DI_AV_ACTIVE; }
   bool is_av_active() const { return info & BTA_DM_DI_AV_ACTIVE; }
 
+  void set_local_init_sniff() { info |= BTA_DM_DI_INT_SNIFF; }
+  bool is_local_init_sniff() const { return info & BTA_DM_DI_INT_SNIFF; }
+  void set_remote_init_sniff() { info |= BTA_DM_DI_ACP_SNIFF; }
+  bool is_remote_init_sniff() const { return info & BTA_DM_DI_ACP_SNIFF; }
+
+  void set_sniff_command_sent() { info |= BTA_DM_DI_SET_SNIFF; }
+  void reset_sniff_command_sent() { info &= ~BTA_DM_DI_SET_SNIFF; }
+  bool is_sniff_command_sent() const { return info & BTA_DM_DI_SET_SNIFF; }
+
   // NOTE: Why is this not used as a bitmask
   void set_both_device_ssr_capable() { info = BTA_DM_DI_USE_SSR; }
 
   void reset_sniff_flags() {
     info &= ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF | BTA_DM_DI_SET_SNIFF);
   }
+
+  void set_ssr_active() { info |= BTA_DM_DI_USE_SSR; }
+  void reset_ssr_active() { info &= ~BTA_DM_DI_USE_SSR; }
+  bool is_ssr_active() const { return info & BTA_DM_DI_USE_SSR; }
 
   tBTA_DM_ENCRYPT_CBACK* p_encrypt_cback;
   tBTM_PM_STATUS prev_low; /* previous low power mode used */

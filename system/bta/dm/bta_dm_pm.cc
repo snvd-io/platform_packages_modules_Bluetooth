@@ -379,8 +379,7 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, const tBTA_SYS_ID id,
 
   /* set SSR parameters on SYS CONN OPEN */
   int index = BTA_DM_PM_SSR0;
-  if ((BTA_SYS_CONN_OPEN == status) && p_dev &&
-      (p_dev->Info() & BTA_DM_DI_USE_SSR)) {
+  if ((BTA_SYS_CONN_OPEN == status) && p_dev && (p_dev->is_ssr_active())) {
     index = get_bta_dm_pm_spec()[p_bta_dm_pm_cfg[i].spec_idx].ssr;
   } else if (BTA_ID_AV == id) {
     if (BTA_SYS_CONN_BUSY == status) {
@@ -789,13 +788,12 @@ void bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
   if (mode != BTM_PM_MD_SNIFF ||
       (controller->supports_sniff_subrating() && p_rem_feat &&
        HCI_SNIFF_SUB_RATE_SUPPORTED(p_rem_feat) &&
-       !(p_peer_dev->Info() & BTA_DM_DI_USE_SSR))) {
+       !(p_peer_dev->is_ssr_active()))) {
     /* Dont initiate Sniff if controller has alreay accepted
      * remote sniff params. This avoid sniff loop issue with
      * some agrresive headsets who use sniff latencies more than
      * DUT supported range of Sniff intervals.*/
-    if ((mode == BTM_PM_MD_SNIFF) &&
-        (p_peer_dev->Info() & BTA_DM_DI_ACP_SNIFF)) {
+    if ((mode == BTM_PM_MD_SNIFF) && (p_peer_dev->is_remote_init_sniff())) {
       LOG_DEBUG("Link already in sniff mode peer:%s",
                 ADDRESS_TO_LOGGABLE_CSTR(p_peer_dev->peer_bdaddr));
       return;
@@ -805,14 +803,14 @@ void bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
    * If sniff, but SSR is not used in this link, still issue the command */
   tBTM_PM_PWR_MD sniff_entry = get_sniff_entry(index);
   memcpy(&pwr_md, &sniff_entry, sizeof(tBTM_PM_PWR_MD));
-  if (p_peer_dev->Info() & BTA_DM_DI_INT_SNIFF) {
+  if (p_peer_dev->is_local_init_sniff()) {
     LOG_DEBUG("Trying to force power mode");
     pwr_md.mode |= BTM_PM_MD_FORCE;
   }
   status = BTM_SetPowerMode(bta_dm_cb.pm_id, p_peer_dev->peer_bdaddr, &pwr_md);
   if (status == BTM_CMD_STORED || status == BTM_CMD_STARTED) {
     p_peer_dev->reset_sniff_flags();
-    p_peer_dev->info |= BTA_DM_DI_SET_SNIFF;
+    p_peer_dev->set_sniff_command_sent();
   } else if (status == BTM_SUCCESS) {
     APPL_TRACE_DEBUG("bta_dm_pm_sniff BTM_SetPowerMode() returns BTM_SUCCESS");
     p_peer_dev->reset_sniff_flags();
@@ -1040,7 +1038,7 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
       /* save the previous low power mode - for SSR.
        * SSR parameters are sent to controller on "conn open".
        * the numbers stay good until park/hold/detach */
-      if (p_dev->info & BTA_DM_DI_USE_SSR) p_dev->prev_low = status;
+      if (p_dev->is_ssr_active()) p_dev->prev_low = status;
       break;
 
     case BTM_PM_STS_SSR:
@@ -1048,11 +1046,11 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
         LOG_WARN("Received error when attempting to set sniff subrating mode");
       }
       if (interval) {
-        p_dev->info |= BTA_DM_DI_USE_SSR;
+        p_dev->set_ssr_active();
         LOG_DEBUG("Enabling sniff subrating mode for peer:%s",
                   ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
       } else {
-        p_dev->info &= ~BTA_DM_DI_USE_SSR;
+        p_dev->reset_ssr_active();
         LOG_DEBUG("Disabling sniff subrating mode for peer:%s",
                   ADDRESS_TO_LOGGABLE_CSTR(bd_addr));
       }
@@ -1067,17 +1065,17 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
          */
         bta_dm_pm_stop_timer(bd_addr);
       } else {
-        tBTA_DM_DEV_INFO info = p_dev->Info();
+        bool is_sniff_command_sent = p_dev->is_sniff_command_sent();
         p_dev->reset_sniff_flags();
-        if (info & BTA_DM_DI_SET_SNIFF)
-          p_dev->info |= BTA_DM_DI_INT_SNIFF;
+        if (is_sniff_command_sent)
+          p_dev->set_local_init_sniff();
         else
-          p_dev->info |= BTA_DM_DI_ACP_SNIFF;
+          p_dev->set_remote_init_sniff();
       }
       break;
 
     case BTM_PM_STS_ERROR:
-      p_dev->info &= ~BTA_DM_DI_SET_SNIFF;
+      p_dev->reset_sniff_command_sent();
       break;
 
     default:
