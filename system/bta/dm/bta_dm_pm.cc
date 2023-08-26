@@ -43,7 +43,7 @@
 #include "stack/include/btu.h"  // do_in_main_thread
 #include "types/raw_address.h"
 
-static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
+static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, const tBTA_SYS_ID id,
                             uint8_t app_id, const RawAddress& peer_addr);
 static void bta_dm_pm_set_mode(const RawAddress& peer_addr,
                                tBTA_DM_PM_ACTION pm_mode,
@@ -341,13 +341,13 @@ static void bta_dm_pm_stop_timer_by_index(tBTA_PM_TIMER* p_timer,
  * Returns          void
  *
  ******************************************************************************/
-static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
+static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, const tBTA_SYS_ID id,
                             uint8_t app_id, const RawAddress& peer_addr) {
   uint8_t i, j;
   tBTA_DM_PEER_DEVICE* p_dev;
   tBTA_DM_PM_REQ pm_req = BTA_DM_PM_NEW_REQ;
 
-  LOG_DEBUG("Power management callback status:%s[%hhu] id:%s[%d], app:%hhu",
+  LOG_DEBUG("Power management callback status:%s[%hhu] id:%s[%hhu], app:%hhu",
             bta_sys_conn_status_text(status).c_str(), status,
             BtaIdSysText(id).c_str(), id, app_id);
 
@@ -366,9 +366,9 @@ static void bta_dm_pm_cback(tBTA_SYS_CONN_STATUS status, uint8_t id,
     return;
   }
 
-  LOG_DEBUG("Stopped all timers for service to device:%s id:%hhu",
-            ADDRESS_TO_LOGGABLE_CSTR(peer_addr), id);
-  bta_dm_pm_stop_timer_by_srvc_id(peer_addr, id);
+  LOG_DEBUG("Stopped all timers for service to device:%s id:%s[%hhu]",
+            ADDRESS_TO_LOGGABLE_CSTR(peer_addr), BtaIdSysText(id).c_str(), id);
+  bta_dm_pm_stop_timer_by_srvc_id(peer_addr, static_cast<uint8_t>(id));
 
   p_dev = bta_dm_find_peer_device(peer_addr);
   if (p_dev) {
@@ -811,18 +811,16 @@ void bta_dm_pm_sniff(tBTA_DM_PEER_DEVICE* p_peer_dev, uint8_t index) {
   }
   status = BTM_SetPowerMode(bta_dm_cb.pm_id, p_peer_dev->peer_bdaddr, &pwr_md);
   if (status == BTM_CMD_STORED || status == BTM_CMD_STARTED) {
-    p_peer_dev->info &= ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF);
+    p_peer_dev->reset_sniff_flags();
     p_peer_dev->info |= BTA_DM_DI_SET_SNIFF;
   } else if (status == BTM_SUCCESS) {
     APPL_TRACE_DEBUG("bta_dm_pm_sniff BTM_SetPowerMode() returns BTM_SUCCESS");
-    p_peer_dev->info &=
-        ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF | BTA_DM_DI_SET_SNIFF);
+    p_peer_dev->reset_sniff_flags();
   } else {
     LOG_ERROR("Unable to set power mode peer:%s status:%s",
               ADDRESS_TO_LOGGABLE_CSTR(p_peer_dev->peer_bdaddr),
               btm_status_text(status).c_str());
-    p_peer_dev->info &=
-        ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF | BTA_DM_DI_SET_SNIFF);
+    p_peer_dev->reset_sniff_flags();
   }
 }
 /*******************************************************************************
@@ -1009,7 +1007,6 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
     return;
   }
 
-  tBTA_DM_DEV_INFO info = p_dev->Info();
   /* check new mode */
   switch (status) {
     case BTM_PM_STS_ACTIVE:
@@ -1017,8 +1014,7 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
       we should not try it again*/
       if (hci_status != 0) {
         APPL_TRACE_ERROR("%s hci_status=%d", __func__, hci_status);
-        p_dev->info &=
-            ~(BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF | BTA_DM_DI_SET_SNIFF);
+        p_dev->reset_sniff_flags();
 
         if (p_dev->pm_mode_attempted & (BTA_DM_PM_PARK | BTA_DM_PM_SNIFF)) {
           p_dev->pm_mode_failed |=
@@ -1071,8 +1067,8 @@ void bta_dm_pm_btm_status(const RawAddress& bd_addr, tBTM_PM_STATUS status,
          */
         bta_dm_pm_stop_timer(bd_addr);
       } else {
-        p_dev->info &=
-            ~(BTA_DM_DI_SET_SNIFF | BTA_DM_DI_INT_SNIFF | BTA_DM_DI_ACP_SNIFF);
+        tBTA_DM_DEV_INFO info = p_dev->Info();
+        p_dev->reset_sniff_flags();
         if (info & BTA_DM_DI_SET_SNIFF)
           p_dev->info |= BTA_DM_DI_INT_SNIFF;
         else
