@@ -118,7 +118,6 @@ import com.android.bluetooth.bas.BatteryService;
 import com.android.bluetooth.bass_client.BassClientService;
 import com.android.bluetooth.btservice.InteropUtil.InteropFeature;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
-import com.android.bluetooth.btservice.activityattribution.ActivityAttributionService;
 import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreNativeInterface;
 import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
@@ -232,9 +231,6 @@ public class AdapterService extends Service {
     static final String SIM_ACCESS_PERMISSION_PREFERENCE_FILE = "sim_access_permission";
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
-
-    public static final String ACTIVITY_ATTRIBUTION_NO_ACTIVE_DEVICE_ADDRESS =
-            "no_active_device_address";
 
     // Report ID definition
     public enum BqrQualityReportId {
@@ -357,7 +353,6 @@ public class AdapterService extends Service {
     private BluetoothKeystoreService mBluetoothKeystoreService;
     private A2dpService mA2dpService;
     private A2dpSinkService mA2dpSinkService;
-    private ActivityAttributionService mActivityAttributionService;
     private HeadsetService mHeadsetService;
     private HeadsetClientService mHeadsetClientService;
     private BluetoothMapService mMapService;
@@ -695,8 +690,6 @@ public class AdapterService extends Service {
         mBtCompanionManager = new CompanionManager(this, new ServiceFactory());
 
         mBluetoothSocketManagerBinder = new BluetoothSocketManagerBinder(this);
-
-        mActivityAttributionService = new ActivityAttributionService();
 
         setAdapterService(this);
 
@@ -6867,17 +6860,6 @@ public class AdapterService extends Service {
         }
     }
 
-    /**
-     * Notify the UID and package name of the app, and the address of associated active device
-     *
-     * @param source The attribution source that starts the activity
-     * @param deviceAddress The address of the active device associated with the app
-     */
-    public void notifyActivityAttributionInfo(AttributionSource source, String deviceAddress) {
-        mActivityAttributionService.notifyActivityAttributionInfo(
-                source.getUid(), source.getPackageName(), deviceAddress);
-    }
-
     static int convertScanModeToHal(int mode) {
         switch (mode) {
             case BluetoothAdapter.SCAN_MODE_NONE:
@@ -7056,8 +7038,7 @@ public class AdapterService extends Service {
         return BluetoothProperties.getHardwareOperatingVoltageMv().orElse(0) / 1000.0;
     }
 
-    @VisibleForTesting
-    protected RemoteDevices getRemoteDevices() {
+    public RemoteDevices getRemoteDevices() {
         return mRemoteDevices;
     }
 
