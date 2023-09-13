@@ -1,5 +1,5 @@
 #
-#  Copyright 2021 Google, Inc.
+#  Copyright 2023 The Android Open Source Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,25 +14,14 @@
 #  limitations under the License.
 #
 
-static_library("audio_hal_interface") {
+source_set("libcodec_client"){
+  configs += [ "//bt/system/stack/mmc:target_defaults" ]
   sources = [
-    "a2dp_encoding_host.cc",
-    "hearing_aid_software_encoding_host.cc",
-    "le_audio_software_host.cc",
+    "codec_client.cc",
   ]
-
-  include_dirs = [
-    "//bt/system/bta/include",
-    "//bt/system/btif/include",
-    "//bt/system/internal_include",
-    "//bt/system/stack/include",
-    "//bt/system/gd/rust/shim",
-  ]
-
-  configs += [ "//bt/system:target_defaults" ]
 
   deps = [
-    "//bt/system/common",
-    "//bt/system/osi:osi",
+    "//bt/system/stack/mmc/proto:mmc_service_proto",
+    "//bt/system/stack/mmc/proto:mmc_config_proto",
   ]
 }
