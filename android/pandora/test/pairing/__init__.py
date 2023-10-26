@@ -16,12 +16,14 @@ from pairing.br_edr.legacy.tests import BREDRLegacyTestClass
 from pairing.br_edr.misc.service_access_tests import ServiceAccessTempBondingTest
 
 from pairing.br_edr.ssp.display_output_and_yes_no_input.tests import BREDRDisplayYesNoTestClass
+from pairing.br_edr.ssp.display_output_only.tests import BREDRDisplayOnlyTestClass
 from pairing.br_edr.ssp.no_output_no_input.tests import BREDRNoOutputNoInputTestClass
 
 from pairing.smp_test import SmpTest
 
 _test_class_list = [
     BREDRDisplayYesNoTestClass,
+    BREDRDisplayOnlyTestClass,
     BREDRNoOutputNoInputTestClass,
     BREDRLegacyTestClass,
     ServiceAccessTempBondingTest,
