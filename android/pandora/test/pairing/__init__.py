@@ -24,6 +24,8 @@ from pairing.ble.legacy.display_output_and_keyboard_input.tests import BLELegDis
 from pairing.ble.legacy.display_output_and_yes_no_input.tests import BLELegDisplayYesNoTestClass
 from pairing.ble.legacy.display_output_only.tests import BLELegDisplayOnlyTestClass
 from pairing.ble.legacy.keyboard_input_only.tests import BLELegKbdOnlyTestClass
+from pairing.ble.legacy.no_output_no_input.tests import BLELegNoInputNoOutputTestClass
+
 
 from pairing.ble.sc.display_output_and_keyboard_input.tests import BLESCDisplayKbdTestClass
 from pairing.ble.sc.display_output_and_yes_no_input.tests import BLESCDisplayYesNoTestClass
@@ -39,6 +41,7 @@ _test_class_list = [
     BLELegDisplayOnlyTestClass,
     BLELegDisplayYesNoTestClass,
     BLELegKbdOnlyTestClass,
+    BLELegNoInputNoOutputTestClass,
     BLESCDisplayKbdTestClass,
     BLESCDisplayOnlyTestClass,
     BLESCDisplayYesNoTestClass,
