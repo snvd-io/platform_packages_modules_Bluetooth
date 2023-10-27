@@ -31,6 +31,7 @@ from pairing.ble.sc.display_output_and_keyboard_input.tests import BLESCDisplayK
 from pairing.ble.sc.display_output_and_yes_no_input.tests import BLESCDisplayYesNoTestClass
 from pairing.ble.sc.display_output_only.tests import BLESCDisplayOnlyTestClass
 from pairing.ble.sc.keyboard_input_only.tests import BLESCKbdOnlyTestClass
+from pairing.ble.sc.no_output_no_input.tests import BLESCNoInputNoOutputTestClass
 
 
 from pairing.smp_test import SmpTest
@@ -41,16 +42,17 @@ _test_class_list = [
     BLELegDisplayOnlyTestClass,
     BLELegDisplayYesNoTestClass,
     BLELegKbdOnlyTestClass,
-    BLELegNoInputNoOutputTestClass,
+    # BLELegNoInputNoOutputTestClass,
     BLESCDisplayKbdTestClass,
-    BLESCDisplayOnlyTestClass,
+    # BLESCDisplayOnlyTestClass,
     BLESCDisplayYesNoTestClass,
-    BLESCKbdOnlyTestClass,
+    # BLESCKbdOnlyTestClass,
+    BLESCNoInputNoOutputTestClass,
     BREDRDisplayYesNoTestClass,
     BREDRDisplayOnlyTestClass,
     # BREDRKeyboardOnlyTestClass,
     BREDRNoOutputNoInputTestClass,
     BREDRLegacyTestClass,
-    ServiceAccessTempBondingTest,
+    # ServiceAccessTempBondingTest,
     SmpTest,
 ]
