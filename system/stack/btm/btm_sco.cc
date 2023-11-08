@@ -50,6 +50,7 @@
 #include "stack/include/btm_api_types.h"
 #include "stack/include/btm_log_history.h"
 #include "stack/include/hci_error_code.h"
+#include "stack/include/hcimsgs.h"
 #include "stack/include/main_thread.h"
 #include "stack/include/sdpdefs.h"
 #include "stack/include/stack_metrics_logging.h"
@@ -78,11 +79,9 @@ typedef struct {
 
 constexpr char kBtmLogTag[] = "SCO";
 
-const bluetooth::legacy::hci::Interface& GetLegacyHciInterface() {
-  return bluetooth::legacy::hci::GetInterface();
-}
-
 };  // namespace
+
+using bluetooth::legacy::hci::GetInterface;
 
 // forward declaration for dequeueing packets
 void btm_route_sco_data(bluetooth::hci::ScoView valid_packet);
@@ -328,10 +327,7 @@ void btm_route_sco_data(bluetooth::hci::ScoView valid_packet) {
                         ? &bluetooth::audio::sco::swb::decode
                         : &bluetooth::audio::sco::wbs::decode;
       rc = decode(&decoded);
-      if (rc == 0) {
-        LOG_DEBUG("Failed to decode %s frames", codec.c_str());
-        break;
-      }
+      if (rc == 0) break;
 
       written += bluetooth::audio::sco::write(decoded, rc);
     }
@@ -1134,7 +1130,7 @@ tBTM_STATUS BTM_RemoveSco(uint16_t sco_inx) {
   tSCO_STATE old_state = p->state;
   p->state = SCO_ST_DISCONNECTING;
 
-  GetLegacyHciInterface().Disconnect(p->Handle(), HCI_ERR_PEER_USER);
+  GetInterface().Disconnect(p->Handle(), HCI_ERR_PEER_USER);
 
   LOG_DEBUG("Disconnecting link sco_handle:0x%04x peer:%s", p->Handle(),
             ADDRESS_TO_LOGGABLE_CSTR(p->esco.data.bd_addr));
@@ -1258,8 +1254,13 @@ void btm_sco_on_disconnected(uint16_t hci_handle, tHCI_REASON reason) {
       double packet_loss_ratio;
       if (fill_plc_stats(&num_decoded_frames, &packet_loss_ratio)) {
         const int16_t codec_id = sco_codec_type_to_id(codec_type);
+        const std::string codec = sco_codec_type_text(codec_type);
         log_hfp_audio_packet_loss_stats(bd_addr, num_decoded_frames,
                                         packet_loss_ratio, codec_id);
+        LOG_DEBUG(
+            "Stopped SCO codec:%s, num_decoded_frames:%d, "
+            "packet_loss_ratio:%lf",
+            codec.c_str(), num_decoded_frames, packet_loss_ratio);
       } else {
         LOG_WARN("Failed to get the packet loss stats");
       }
@@ -1447,8 +1448,8 @@ static tBTM_STATUS BTM_ChangeEScoLinkParms(uint16_t sco_inx,
     LOG_VERBOSE("%s: SCO Link for handle 0x%04x, pkt 0x%04x", __func__,
                 p_sco->hci_handle, p_setup->packet_types);
 
-    btsnd_hcic_change_conn_type(p_sco->hci_handle,
-                                BTM_ESCO_2_SCO(p_setup->packet_types));
+    GetInterface().ChangeConnectionPacketType(
+        p_sco->hci_handle, BTM_ESCO_2_SCO(p_setup->packet_types));
   } else /* eSCO is supported and the link type is eSCO */
   {
     uint16_t temp_packet_types =
