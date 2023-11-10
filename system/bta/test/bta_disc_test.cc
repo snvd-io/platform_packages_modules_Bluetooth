@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 #include <sys/socket.h>
 
+#include <memory>
+
 #include "bta/dm/bta_dm_disc.h"
 #include "bta/dm/bta_dm_int.h"
 #include "osi/include/allocator.h"
@@ -175,7 +177,7 @@ TEST_F(BtaDiscTest, bta_dm_read_remote_device_name) {
       kRawAddress, BT_TRANSPORT_BR_EDR);
 }
 
-TEST_F(BtaDiscTest, DISABLED_bta_dm_search_result) {  // b/309463889
+TEST_F(BtaDiscTest, bta_dm_search_result) {
   tBTA_DM_MSG msg = {
       .disc_result = {},
   };
