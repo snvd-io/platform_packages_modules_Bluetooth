@@ -2386,6 +2386,9 @@ static void bta_dm_disc_reset() {
   osi_free_and_reset((void**)&bta_dm_search_cb.p_pending_search);
   fixed_queue_free(bta_dm_search_cb.pending_discovery_queue, osi_free);
   bta_dm_search_cb = {};
+  bta_dm_search_cb.state = BTA_DM_SEARCH_IDLE;
+  bta_dm_search_cb.conn_id = GATT_INVALID_CONN_ID;
+  bta_dm_search_cb.transport = BT_TRANSPORT_AUTO;
 }
 
 void bta_dm_disc_start(bool delay_close_gatt) {
@@ -2394,6 +2397,27 @@ void bta_dm_disc_start(bool delay_close_gatt) {
   bta_dm_search_cb.gatt_close_timer =
       delay_close_gatt ? alarm_new("bta_dm_search.gatt_close_timer") : nullptr;
   bta_dm_search_cb.pending_discovery_queue = fixed_queue_new(SIZE_MAX);
+}
+
+void bta_dm_disc_acl_down(const RawAddress& bd_addr, tBT_TRANSPORT transport) {
+  switch (transport) {
+    case BT_TRANSPORT_BR_EDR:
+      if (bta_dm_search_cb.wait_disc &&
+          bta_dm_search_cb.peer_bdaddr == bd_addr) {
+        bta_dm_search_cb.wait_disc = false;
+
+        if (bta_dm_search_cb.sdp_results) {
+          LOG_VERBOSE(" timer stopped  ");
+          alarm_cancel(bta_dm_search_cb.search_timer);
+          bta_dm_disc_discover_next_device();
+        }
+      }
+      break;
+
+    case BT_TRANSPORT_LE:
+    default:
+      break;
+  }
 }
 
 void bta_dm_disc_stop() { bta_dm_disc_reset(); }
