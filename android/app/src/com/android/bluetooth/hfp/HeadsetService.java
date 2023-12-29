@@ -586,8 +586,14 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
 
-            service.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
-            service.enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, null);
+            try {
+                service.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
+                service.enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, null);
+            } catch (SecurityException e) {
+                /* see android.bluetooth.BluetoothHeadset#setConnectionPolicy */
+                Utils.enforceBluetoothPrivilegedAndroidAutoOrThrow(service, e);
+            }
+
             return service.setConnectionPolicy(device, connectionPolicy);
         }
 

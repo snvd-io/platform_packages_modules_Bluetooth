@@ -591,6 +591,15 @@ public final class Utils {
         return true;
     }
 
+    @SuppressLint("AndroidFrameworkRequiresPermission")
+    public static void enforceBluetoothPrivilegedAndroidAutoOrThrow(Context context, SecurityException e) {
+        String perm = android.Manifest.permission.BLUETOOTH_PRIVILEGED_ANDROID_AUTO;
+        if (context.checkCallingPermission(perm) == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        throw e;
+    }
+
     public static AttributionSource getCallingAttributionSource(Context context) {
         int callingUid = Binder.getCallingUid();
         if (callingUid == android.os.Process.ROOT_UID) {
