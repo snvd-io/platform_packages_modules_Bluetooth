@@ -96,6 +96,7 @@ void btm_inq_stop_on_ssp(void);
 bool btm_ble_init_pseudo_addr(tBTM_SEC_DEV_REC* p_dev_rec,
                               const RawAddress& new_pseudo_addr);
 void bta_dm_remove_device(const RawAddress& bd_addr);
+void bta_dm_remote_key_missing(RawAddress bd_addr);
 void bta_dm_process_remove_device(const RawAddress& bd_addr);
 void btm_inq_clear_ssp(void);
 
@@ -2675,9 +2676,9 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, const RawAddress bda,
   tBTM_SEC_DEV_REC* p_dev_rec;
 
   p_bda = bda;
-  LOG_VERBOSE("BDA: %s, event: 0x%x, state: %s",
-              ADDRESS_TO_LOGGABLE_CSTR(p_bda), event,
-              tBTM_SEC_CB::btm_pair_state_descr(btm_sec_cb.pairing_state));
+  LOG_DEBUG("BDA:%s, event:%s, state:%s", ADDRESS_TO_LOGGABLE_CSTR(p_bda),
+            sp_evt_to_text(event).c_str(),
+            tBTM_SEC_CB::btm_pair_state_descr(btm_sec_cb.pairing_state));
 
   p_dev_rec = btm_find_dev(p_bda);
   if ((p_dev_rec != NULL) &&
@@ -2696,8 +2697,7 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, const RawAddress bda,
 
         /* The device record must be allocated in the "IO cap exchange" step */
         evt_data.cfm_req.num_val = value;
-        LOG_VERBOSE("BTM_SP_CFM_REQ_EVT:  num_val: %u",
-                    evt_data.cfm_req.num_val);
+        LOG_VERBOSE("num_val:%u", evt_data.cfm_req.num_val);
 
         evt_data.cfm_req.just_works = true;
 
@@ -2725,12 +2725,11 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, const RawAddress bda,
           }
         }
 
-        LOG_VERBOSE(
-            "btm_proc_sp_req_evt()  just_works:%d, io loc:%d, rmt:%d, auth "
-            "loc:%d, rmt:%d",
-            evt_data.cfm_req.just_works, btm_sec_cb.devcb.loc_io_caps,
-            p_dev_rec->sec_rec.rmt_io_caps, btm_sec_cb.devcb.loc_auth_req,
-            p_dev_rec->sec_rec.rmt_auth_req);
+        LOG_VERBOSE("just_works:%d, io loc:%d, rmt:%d, auth loc:%d, rmt:%d",
+                    evt_data.cfm_req.just_works, btm_sec_cb.devcb.loc_io_caps,
+                    p_dev_rec->sec_rec.rmt_io_caps,
+                    btm_sec_cb.devcb.loc_auth_req,
+                    p_dev_rec->sec_rec.rmt_auth_req);
 
         evt_data.cfm_req.loc_auth_req = btm_sec_cb.devcb.loc_auth_req;
         evt_data.cfm_req.rmt_auth_req = p_dev_rec->sec_rec.rmt_auth_req;
@@ -2741,8 +2740,7 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, const RawAddress bda,
       case BTM_SP_KEY_NOTIF_EVT:
         /* Passkey notification (other side is a keyboard) */
         evt_data.key_notif.passkey = value;
-        LOG_VERBOSE("BTM_SP_KEY_NOTIF_EVT:  passkey: %u",
-                    evt_data.key_notif.passkey);
+        LOG_VERBOSE("passkey:%u", evt_data.key_notif.passkey);
 
         btm_sec_cb.change_pairing_state(BTM_PAIR_STATE_WAIT_AUTH_COMPLETE);
         break;
@@ -2752,6 +2750,9 @@ void btm_proc_sp_req_evt(tBTM_SP_EVT event, const RawAddress bda,
           /* HCI_USER_PASSKEY_REQUEST_EVT */
           btm_sec_cb.change_pairing_state(BTM_PAIR_STATE_KEY_ENTRY);
         }
+        break;
+      default:
+        LOG_WARN("unhandled event:%s", sp_evt_to_text(event).c_str());
         break;
     }
 
@@ -3268,6 +3269,13 @@ void btm_sec_encrypt_change(uint16_t handle, tHCI_STATUS status,
     }
     p_dev_rec->sec_rec.sec_status = status;
     btm_ble_link_encrypted(p_dev_rec->ble.pseudo_addr, encr_enable);
+
+    if (status == HCI_ERR_KEY_MISSING) {
+      LOG_INFO("Remote key missing - will report");
+      bta_dm_remote_key_missing(p_dev_rec->ble.pseudo_addr);
+      return;
+    }
+
     return;
   } else {
     /* BR/EDR connection, update the encryption key size to be 16 as always */
