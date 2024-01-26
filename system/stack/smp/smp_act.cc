@@ -111,6 +111,10 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   tSMP_EVT_DATA cb_data;
   tBTM_STATUS callback_rc;
   uint8_t remote_lmp_version = 0;
+
+  LOG_DEBUG("addr:%s event:%s", ADDRESS_TO_LOGGABLE_CSTR(p_cb->pairing_bda),
+            smp_evt_to_text(p_cb->cb_evt).c_str());
+
   if (p_cb->p_callback && p_cb->cb_evt != 0) {
     switch (p_cb->cb_evt) {
       case SMP_IO_CAP_REQ_EVT:
@@ -165,14 +169,14 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
           p_cb->local_r_key = cb_data.io_req.resp_keys;
 
           if (!(p_cb->loc_auth_req & SMP_AUTH_BOND)) {
-            LOG_INFO("Non bonding: No keys will be exchanged");
+            LOG_DEBUG("Non bonding: No keys will be exchanged");
             p_cb->local_i_key = 0;
             p_cb->local_r_key = 0;
           }
 
           LOG_DEBUG(
               "Remote request IO capabilities precondition auth_req:0x%02x,"
-              " io_cap:%d loc_oob_flag:%d loc_enc_size:%d, "
+              "io_cap:%d loc_oob_flag:%d loc_enc_size:%d, "
               "local_i_key:0x%02x, local_r_key:0x%02x",
               p_cb->loc_auth_req, p_cb->local_io_capability, p_cb->loc_oob_flag,
               p_cb->loc_enc_size, p_cb->local_i_key, p_cb->local_r_key);
@@ -186,10 +190,8 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
           if (!BTM_ReadRemoteVersion(p_cb->pairing_bda, &remote_lmp_version,
                                      nullptr, nullptr)) {
-            LOG_WARN(
-                "SMP Unable to determine remote security authentication "
-                "remote_lmp_version:%hu",
-                remote_lmp_version);
+            LOG_WARN("SMP Unable to determine remote_lmp_version:%hu",
+                     remote_lmp_version);
           }
 
           if (!p_cb->sc_only_mode_locally_required &&
@@ -215,7 +217,7 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 
           LOG_DEBUG(
               "Remote request IO capabilities postcondition auth_req:0x%02x,"
-              " local_i_key:0x%02x, local_r_key:0x%02x",
+              "local_i_key:0x%02x, local_r_key:0x%02x",
               p_cb->loc_auth_req, p_cb->local_i_key, p_cb->local_r_key);
 
           smp_sm_event(p_cb, SMP_IO_RSP_EVT, NULL);
@@ -318,6 +320,7 @@ void smp_send_pair_rsp(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
 void smp_send_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   LOG_VERBOSE("addr:%s", ADDRESS_TO_LOGGABLE_CSTR(p_cb->pairing_bda));
   smp_send_cmd(SMP_OPCODE_CONFIRM, p_cb);
+  p_cb->flags |= SMP_PAIR_FLAGS_CMD_CONFIRM_SENT;
 }
 
 /*******************************************************************************
@@ -664,7 +667,7 @@ void smp_proc_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
     }
   }
 
-  p_cb->flags |= SMP_PAIR_FLAGS_CMD_CONFIRM;
+  p_cb->flags |= SMP_PAIR_FLAGS_CMD_CONFIRM_RCVD;
 }
 
 /*******************************************************************************
@@ -681,6 +684,19 @@ void smp_proc_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
     smp_int_data.status = SMP_INVALID_PARAMETERS;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
     return;
+  }
+
+  if (IS_FLAG_ENABLED(fix_le_pairing_passkey_entry_bypass)) {
+    if (!((p_cb->loc_auth_req & SMP_SC_SUPPORT_BIT) &&
+          (p_cb->peer_auth_req & SMP_SC_SUPPORT_BIT)) &&
+        !(p_cb->flags & SMP_PAIR_FLAGS_CMD_CONFIRM_SENT)) {
+      // in legacy pairing, the peer should send its rand after
+      // we send our confirm
+      tSMP_INT_DATA smp_int_data{};
+      smp_int_data.status = SMP_INVALID_PARAMETERS;
+      smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
+      return;
+    }
   }
 
   /* save the SRand for comparison */
@@ -1141,7 +1157,7 @@ void smp_proc_sl_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   } else if (key_type == SMP_KEY_TYPE_CFM) {
     smp_set_state(SMP_STATE_WAIT_CONFIRM);
 
-    if (p_cb->flags & SMP_PAIR_FLAGS_CMD_CONFIRM)
+    if (p_cb->flags & SMP_PAIR_FLAGS_CMD_CONFIRM_RCVD)
       smp_sm_event(p_cb, SMP_CONFIRM_EVT, NULL);
   }
 }
