@@ -89,7 +89,6 @@ import libcore.util.HexEncoding;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,8 +103,8 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -175,12 +174,6 @@ public class AdapterServiceTest {
             new BatteryStatsManager(mock(IBatteryStats.class));
 
     private static final int CONTEXT_SWITCH_MS = 100;
-    private static final int PROFILE_SERVICE_TOGGLE_TIME_MS = 200;
-    private static final int GATT_START_TIME_MS = 1000;
-    private static final int ONE_SECOND_MS = 1000;
-    private static final int NATIVE_INIT_MS = 8000;
-    private static final int NATIVE_DISABLE_MS = 8000;
-
 
     private PackageManager mMockPackageManager;
     private MockContentResolver mMockContentResolver;
@@ -248,12 +241,14 @@ public class AdapterServiceTest {
         Context targetContext = InstrumentationRegistry.getTargetContext();
 
         mMockContentResolver = new MockContentResolver(targetContext);
-        mMockContentResolver.addProvider(Settings.AUTHORITY, new MockContentProvider() {
-            @Override
-            public Bundle call(String method, String request, Bundle args) {
-                return Bundle.EMPTY;
-            }
-        });
+        mMockContentResolver.addProvider(
+                Settings.AUTHORITY,
+                new MockContentProvider() {
+                    @Override
+                    public Bundle call(String method, String request, Bundle args) {
+                        return Bundle.EMPTY;
+                    }
+                });
 
         mBluetoothManager = targetContext.getSystemService(BluetoothManager.class);
         mCompanionDeviceManager = targetContext.getSystemService(CompanionDeviceManager.class);
@@ -268,8 +263,8 @@ public class AdapterServiceTest {
         when(mMockContext.getApplicationInfo()).thenReturn(mMockApplicationInfo);
         when(mMockContext.getContentResolver()).thenReturn(mMockContentResolver);
         when(mMockContext.getApplicationContext()).thenReturn(mMockContext);
-        when(mMockContext.createContextAsUser(UserHandle.SYSTEM, /* flags= */ 0)).thenReturn(
-                mMockContext);
+        when(mMockContext.createContextAsUser(UserHandle.SYSTEM, /* flags= */ 0))
+                .thenReturn(mMockContext);
         when(mMockContext.getResources()).thenReturn(mMockResources);
         when(mMockContext.getUserId()).thenReturn(Process.BLUETOOTH_UID);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
@@ -304,10 +299,10 @@ public class AdapterServiceTest {
                                 "AdapterServiceTestPrefs", Context.MODE_PRIVATE));
 
         doAnswer(
-                invocation -> {
-                    Object[] args = invocation.getArguments();
-                    return targetContext.getDatabasePath((String) args[0]);
-                })
+                        invocation -> {
+                            Object[] args = invocation.getArguments();
+                            return targetContext.getDatabasePath((String) args[0]);
+                        })
                 .when(mMockContext)
                 .getDatabasePath(anyString());
 
@@ -319,7 +314,8 @@ public class AdapterServiceTest {
 
         when(mIBluetoothCallback.asBinder()).thenReturn(mBinder);
 
-        doReturn(Process.BLUETOOTH_UID).when(mMockPackageManager)
+        doReturn(Process.BLUETOOTH_UID)
+                .when(mMockPackageManager)
                 .getPackageUidAsUser(any(), anyInt(), anyInt());
 
         when(mMockGattService.getName()).thenReturn("GattService");
@@ -387,15 +383,6 @@ public class AdapterServiceTest {
         try {
             verify(mIBluetoothCallback, timeout(timeoutMs))
                     .onBluetoothStateChange(prevState, currState);
-        } catch (RemoteException e) {
-            // the mocked onBluetoothStateChange doesn't throw RemoteException
-        }
-    }
-
-    private static void verifyStateChange(
-            IBluetoothCallback cb, int prevState, int currState, int timeoutMs) {
-        try {
-            verify(cb, timeout(timeoutMs)).onBluetoothStateChange(prevState, currState);
         } catch (RemoteException e) {
             // the mocked onBluetoothStateChange doesn't throw RemoteException
         }
@@ -524,7 +511,6 @@ public class AdapterServiceTest {
     void doDisable(boolean onlyGatt) {
         doDisable(
                 mLooper,
-                mMockGattService,
                 mAdapterService,
                 mMockContext,
                 onlyGatt,
@@ -534,7 +520,6 @@ public class AdapterServiceTest {
 
     private static void doDisable(
             TestLooper looper,
-            ProfileService gattService,
             MockAdapterService adapter,
             Context ctx,
             boolean onlyGatt,
@@ -573,10 +558,7 @@ public class AdapterServiceTest {
         Log.e(TAG, "doDisable() complete success");
     }
 
-    /**
-     * Test: Turn Bluetooth on.
-     * Check whether the AdapterService gets started.
-     */
+    /** Test: Turn Bluetooth on. Check whether the AdapterService gets started. */
     @Test
     public void testEnable() {
         doEnable(false);
@@ -598,10 +580,7 @@ public class AdapterServiceTest {
         assertThat(mAdapterService.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_CONNECTABLE);
     }
 
-    /**
-     * Test: Turn Bluetooth on/off.
-     * Check whether the AdapterService gets started and stopped.
-     */
+    /** Test: Turn Bluetooth on/off. Check whether the AdapterService gets started and stopped. */
     @Test
     public void testEnableDisable() {
         doEnable(false);
@@ -609,8 +588,8 @@ public class AdapterServiceTest {
     }
 
     /**
-     * Test: Turn Bluetooth on/off with only GATT supported.
-     * Check whether the AdapterService gets started and stopped.
+     * Test: Turn Bluetooth on/off with only GATT supported. Check whether the AdapterService gets
+     * started and stopped.
      */
     @Test
     public void testEnableDisableOnlyGatt() {
@@ -633,10 +612,7 @@ public class AdapterServiceTest {
         doDisable(true);
     }
 
-    /**
-     * Test: Don't start GATT
-     * Check whether the AdapterService quits gracefully
-     */
+    /** Test: Don't start GATT Check whether the AdapterService quits gracefully */
     @Test
     public void testGattStartTimeout() {
         assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
@@ -671,10 +647,7 @@ public class AdapterServiceTest {
         assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
     }
 
-    /**
-     * Test: Don't stop GATT
-     * Check whether the AdapterService quits gracefully
-     */
+    /** Test: Don't stop GATT Check whether the AdapterService quits gracefully */
     @Test
     public void testGattStopTimeout() {
         doEnable(false);
@@ -841,10 +814,7 @@ public class AdapterServiceTest {
         mAdapterService.unregisterRemoteCallback(callback);
     }
 
-    /**
-     * Test: Don't start a classic profile
-     * Check whether the AdapterService quits gracefully
-     */
+    /** Test: Don't start a classic profile Check whether the AdapterService quits gracefully */
     @Test
     public void testProfileStartTimeout() {
         assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
@@ -922,15 +892,12 @@ public class AdapterServiceTest {
         assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
     }
 
-    /**
-     * Test: Toggle snoop logging setting
-     * Check whether the AdapterService restarts fully
-     */
+    /** Test: Toggle snoop logging setting Check whether the AdapterService restarts fully */
     @Test
     public void testSnoopLoggingChange() {
         BluetoothProperties.snoop_log_mode_values snoopSetting =
                 BluetoothProperties.snoop_log_mode()
-                .orElse(BluetoothProperties.snoop_log_mode_values.EMPTY);
+                        .orElse(BluetoothProperties.snoop_log_mode_values.EMPTY);
         BluetoothProperties.snoop_log_mode(BluetoothProperties.snoop_log_mode_values.DISABLED);
         doEnable(false);
 
@@ -974,88 +941,14 @@ public class AdapterServiceTest {
         BluetoothProperties.snoop_log_mode(snoopSetting);
     }
 
-
     /**
-     * Test: Obfuscate a null Bluetooth
-     * Check if returned value from {@link AdapterService#obfuscateAddress(BluetoothDevice)} is
-     * an empty array when device address is null
+     * Test: Obfuscate a null Bluetooth Check if returned value from {@link
+     * AdapterService#obfuscateAddress(BluetoothDevice)} is an empty array when device address is
+     * null
      */
     @Test
     public void testObfuscateBluetoothAddress_NullAddress() {
         assertThat(mAdapterService.obfuscateAddress(null)).isEmpty();
-    }
-
-    /**
-     * Test: Obfuscate Bluetooth address when Bluetooth is disabled Check whether the returned value
-     * meets expectation
-     */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testObfuscateBluetoothAddress_BluetoothDisabled() {
-        HashMap<String, HashMap<String, String>> adapterConfig = TestUtils.readAdapterConfig();
-        assertThat(adapterConfig).isNotNull();
-
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        byte[] metricsSalt = getMetricsSalt(adapterConfig);
-        assertThat(metricsSalt).isNotNull();
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        byte[] obfuscatedAddress = mAdapterService.obfuscateAddress(device);
-        assertThat(obfuscatedAddress).isNotEmpty();
-        assertThat(isByteArrayAllZero(obfuscatedAddress)).isFalse();
-        assertThat(obfuscateInJava(metricsSalt, device)).isEqualTo(obfuscatedAddress);
-    }
-
-    /**
-     * Test: Obfuscate Bluetooth address when Bluetooth is enabled Check whether the returned value
-     * meets expectation
-     */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testObfuscateBluetoothAddress_BluetoothEnabled() {
-        HashMap<String, HashMap<String, String>> adapterConfig = TestUtils.readAdapterConfig();
-        assertThat(adapterConfig).isNotNull();
-
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        doEnable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_ON);
-        byte[] metricsSalt = getMetricsSalt(adapterConfig);
-        assertThat(metricsSalt).isNotNull();
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        byte[] obfuscatedAddress = mAdapterService.obfuscateAddress(device);
-        assertThat(obfuscatedAddress).isNotEmpty();
-        assertThat(isByteArrayAllZero(obfuscatedAddress)).isFalse();
-        assertThat(obfuscateInJava(metricsSalt, device)).isEqualTo(obfuscatedAddress);
-    }
-
-    /** Test: Check if obfuscated Bluetooth address stays the same after toggling Bluetooth */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testObfuscateBluetoothAddress_PersistentBetweenToggle() {
-        HashMap<String, HashMap<String, String>> adapterConfig = TestUtils.readAdapterConfig();
-        assertThat(adapterConfig).isNotNull();
-
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        byte[] metricsSalt = getMetricsSalt(adapterConfig);
-        assertThat(metricsSalt).isNotNull();
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        byte[] obfuscatedAddress1 = mAdapterService.obfuscateAddress(device);
-        assertThat(obfuscatedAddress1).isNotEmpty();
-        assertThat(isByteArrayAllZero(obfuscatedAddress1)).isFalse();
-        assertThat(obfuscateInJava(metricsSalt, device)).isEqualTo(obfuscatedAddress1);
-        // Enable
-        doEnable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_ON);
-        byte[] obfuscatedAddress3 = mAdapterService.obfuscateAddress(device);
-        assertThat(obfuscatedAddress3).isNotEmpty();
-        assertThat(isByteArrayAllZero(obfuscatedAddress3)).isFalse();
-        assertThat(obfuscatedAddress3).isEqualTo(obfuscatedAddress1);
-        // Disable
-        doDisable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        byte[] obfuscatedAddress4 = mAdapterService.obfuscateAddress(device);
-        assertThat(obfuscatedAddress4).isNotEmpty();
-        assertThat(isByteArrayAllZero(obfuscatedAddress4)).isFalse();
-        assertThat(obfuscatedAddress4).isEqualTo(obfuscatedAddress1);
     }
 
     @Test
@@ -1069,7 +962,8 @@ public class AdapterServiceTest {
         }
 
         // Trigger address consolidate callback
-        remoteDevices.addressConsolidateCallback(Utils.getBytesFromAddress(TEST_BT_ADDR_1),
+        remoteDevices.addressConsolidateCallback(
+                Utils.getBytesFromAddress(TEST_BT_ADDR_1),
                 Utils.getBytesFromAddress(TEST_BT_ADDR_2));
 
         // Verify we can get correct identity address
@@ -1086,8 +980,8 @@ public class AdapterServiceTest {
         assertThat(mAdapterService.getIdentityAddress(device.getAddress())).isNull();
     }
 
-    public static byte[] getMetricsSalt(HashMap<String, HashMap<String, String>> adapterConfig) {
-        HashMap<String, String> metricsSection = adapterConfig.get("Metrics");
+    public static byte[] getMetricsSalt(Map<String, Map<String, String>> adapterConfig) {
+        Map<String, String> metricsSection = adapterConfig.get("Metrics");
         if (metricsSection == null) {
             Log.e(TAG, "Metrics section is null: " + adapterConfig.toString());
             return null;
@@ -1127,55 +1021,12 @@ public class AdapterServiceTest {
     }
 
     /**
-     * Test: Get id for null address
-     * Check if returned value from {@link AdapterService#getMetricId(BluetoothDevice)} is
-     * 0 when device address is null
+     * Test: Get id for null address Check if returned value from {@link
+     * AdapterService#getMetricId(BluetoothDevice)} is 0 when device address is null
      */
     @Test
     public void testGetMetricId_NullAddress() {
         assertThat(mAdapterService.getMetricId(null)).isEqualTo(0);
-    }
-
-    /**
-     * Test: Get id when Bluetooth is disabled Check whether the returned value meets expectation
-     */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testGetMetricId_BluetoothDisabled() {
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        assertThat(mAdapterService.getMetricId(device)).isGreaterThan(0);
-    }
-
-    /** Test: Get id when Bluetooth is enabled Check whether the returned value meets expectation */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testGetMetricId_BluetoothEnabled() {
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        doEnable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_ON);
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        assertThat(mAdapterService.getMetricId(device)).isGreaterThan(0);
-    }
-
-    /** Test: Check if id gotten stays the same after toggling Bluetooth */
-    @Test
-    @Ignore("b/296127545: This is a native test")
-    public void testGetMetricId_PersistentBetweenToggle() {
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
-        final int initialMetricId = mAdapterService.getMetricId(device);
-        assertThat(initialMetricId).isGreaterThan(0);
-
-        // Enable
-        doEnable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_ON);
-        assertThat(mAdapterService.getMetricId(device)).isEqualTo(initialMetricId);
-
-        // Disable
-        doDisable(false);
-        assertThat(mAdapterService.getState()).isEqualTo(STATE_OFF);
-        assertThat(mAdapterService.getMetricId(device)).isEqualTo(initialMetricId);
     }
 
     @Test
@@ -1183,8 +1034,8 @@ public class AdapterServiceTest {
         FileDescriptor fd = new FileDescriptor();
         PrintWriter writer = mock(PrintWriter.class);
 
-        mAdapterService.dump(fd, writer, new String[]{});
-        mAdapterService.dump(fd, writer, new String[]{"set-test-mode", "enabled"});
+        mAdapterService.dump(fd, writer, new String[] {});
+        mAdapterService.dump(fd, writer, new String[] {"set-test-mode", "enabled"});
         doReturn(new byte[0]).when(mNativeInterface).dumpMetrics();
         mAdapterService.dump(fd, writer, new String[] {"--proto-bin"});
         mAdapterService.dump(fd, writer, new String[] {"random", "arguments"});

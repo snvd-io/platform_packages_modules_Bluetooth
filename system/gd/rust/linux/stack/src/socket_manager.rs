@@ -1,6 +1,8 @@
 //! Implementation of the Socket API (IBluetoothSocketManager).
 
-use bt_topshim::btif::{BluetoothInterface, BtStatus, DisplayAddress, RawAddress, Uuid};
+use bt_topshim::btif::{
+    BluetoothInterface, BtStatus, DisplayAddress, DisplayUuid, RawAddress, Uuid,
+};
 use bt_topshim::profiles::socket;
 use log;
 use nix::sys::socket::{recvmsg, ControlMessageOwned};
@@ -173,7 +175,7 @@ impl fmt::Display for BluetoothServerSocket {
             self.sock_type,
             self.name.as_ref().unwrap_or(&String::new()),
             match self.uuid {
-                Some(u) => u.to_string(),
+                Some(u) => DisplayUuid(&u).to_string(),
                 None => "".to_string(),
             }
         )
@@ -256,7 +258,7 @@ impl fmt::Display for BluetoothSocket {
             self.port,
             self.sock_type,
             match self.uuid {
-                Some(u) => u.to_string(),
+                Some(u) => DisplayUuid(&u).to_string(),
                 None => "".to_string(),
             }
         )
@@ -589,7 +591,7 @@ impl BluetoothSocketManager {
     ) -> SocketResult {
         if let Some(uuid) = socket_info.uuid {
             if !self.admin.lock().unwrap().is_service_allowed(uuid) {
-                log::debug!("service {} is blocked by admin policy", uuid);
+                log::debug!("service {} is blocked by admin policy", DisplayUuid(&uuid));
                 return SocketResult::new(BtStatus::AuthRejected, INVALID_SOCKET_ID);
             }
             if self
@@ -597,8 +599,8 @@ impl BluetoothSocketManager {
                 .iter()
                 .any(|(_, v)| v.iter().any(|s| s.uuid.map_or(false, |u| u == uuid)))
             {
-                log::warn!("Service {} already exists", uuid);
-                return SocketResult::new(BtStatus::Fail, INVALID_SOCKET_ID);
+                log::warn!("Service {} already exists", DisplayUuid(&uuid));
+                return SocketResult::new(BtStatus::SocketError, INVALID_SOCKET_ID);
             }
         }
 
@@ -637,7 +639,7 @@ impl BluetoothSocketManager {
                     Some(v) => v,
                     None => {
                         log::debug!("Converting from file to unixstream failed");
-                        return SocketResult::new(BtStatus::Fail, INVALID_SOCKET_ID);
+                        return SocketResult::new(BtStatus::SocketError, INVALID_SOCKET_ID);
                     }
                 };
 
@@ -688,7 +690,7 @@ impl BluetoothSocketManager {
     ) -> SocketResult {
         if let Some(uuid) = socket_info.uuid {
             if !self.admin.lock().unwrap().is_service_allowed(uuid) {
-                log::debug!("service {} is blocked by admin policy", uuid);
+                log::debug!("service {} is blocked by admin policy", DisplayUuid(&uuid));
                 return SocketResult::new(BtStatus::AuthRejected, INVALID_SOCKET_ID);
             }
         }
@@ -771,7 +773,7 @@ impl BluetoothSocketManager {
             Self::wait_and_read_stream(connection_timeout, &stream, &mut channel_bytes).await;
         let channel = i32::from_ne_bytes(channel_bytes);
         if channel <= 0 {
-            status = BtStatus::Fail;
+            status = BtStatus::SocketError;
         }
 
         // If we don't get a valid channel, consider the socket as closed.
@@ -969,7 +971,7 @@ impl BluetoothSocketManager {
                                             SocketActions::OnIncomingSocketReady(
                                                 cbid,
                                                 cloned_socket_info,
-                                                BtStatus::Fail,
+                                                BtStatus::SocketError,
                                             ),
                                         ))
                                         .await;
@@ -1020,7 +1022,7 @@ impl BluetoothSocketManager {
                 Ok(()) => {}
                 Err(_e) => {
                     // Stream was not readable. This is usually due to some polling error.
-                    return BtStatus::Fail;
+                    return BtStatus::SocketError;
                 }
             },
             Err(_) => {
@@ -1032,12 +1034,12 @@ impl BluetoothSocketManager {
         match stream.try_read(buf) {
             Ok(n) => {
                 if n != buf.len() {
-                    return BtStatus::Fail;
+                    return BtStatus::SocketError;
                 }
                 return BtStatus::Success;
             }
             _ => {
-                return BtStatus::Fail;
+                return BtStatus::SocketError;
             }
         }
     }
@@ -1063,7 +1065,7 @@ impl BluetoothSocketManager {
                     .send(Message::SocketManagerActions(SocketActions::OnOutgoingConnectionResult(
                         cbid,
                         socket_id,
-                        BtStatus::Fail,
+                        BtStatus::SocketError,
                         None,
                     )))
                     .await;
@@ -1076,7 +1078,7 @@ impl BluetoothSocketManager {
         let mut status =
             Self::wait_and_read_stream(connection_timeout, &stream, &mut channel_bytes).await;
         if i32::from_ne_bytes(channel_bytes) <= 0 {
-            status = BtStatus::Fail;
+            status = BtStatus::SocketError;
         }
         if status != BtStatus::Success {
             log::info!(
@@ -1145,7 +1147,7 @@ impl BluetoothSocketManager {
                     .send(Message::SocketManagerActions(SocketActions::OnOutgoingConnectionResult(
                         cbid,
                         socket_id,
-                        BtStatus::Fail,
+                        BtStatus::SocketError,
                         None,
                     )))
                     .await;
@@ -1218,7 +1220,7 @@ impl BluetoothSocketManager {
                 log::debug!(
                     "socket id {} is not allowed by admin policy due to uuid {}, closing",
                     id,
-                    uuid
+                    DisplayUuid(&uuid)
                 );
                 let _ = tx.send(SocketRunnerActions::Close(id)).await;
             }

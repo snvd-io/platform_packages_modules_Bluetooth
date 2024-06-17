@@ -12,12 +12,11 @@ use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::{Hash, Hasher};
 use std::mem;
+use std::os::fd::RawFd;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
-use topshim_macros::cb_variant;
-
-use cxx::{type_id, ExternType};
+use topshim_macros::{cb_variant, gen_cxx_extern_trivial};
 
 #[derive(Clone, Debug, FromPrimitive, ToPrimitive, PartialEq, PartialOrd)]
 #[repr(u32)]
@@ -219,6 +218,9 @@ pub enum BtStatus {
     JniThreadAttachError,
     WakeLockError,
     Timeout,
+    DeviceNotFound,
+    UnexpectedState,
+    SocketError,
 
     // Any statuses that couldn't be cleanly converted
     Unknown = 0xff,
@@ -418,12 +420,6 @@ pub type BtLocalLeFeatures = bindings::bt_local_le_features_t;
 pub type BtPinCode = bindings::bt_pin_code_t;
 pub type BtRemoteVersion = bindings::bt_remote_version_t;
 pub type BtVendorProductInfo = bindings::bt_vendor_product_info_t;
-pub type Uuid = bindings::bluetooth::Uuid;
-
-unsafe impl ExternType for Uuid {
-    type Id = type_id!("bluetooth::topshim::rust::Uuid");
-    type Kind = cxx::kind::Trivial;
-}
 
 impl TryFrom<Uuid> for Vec<u8> {
     type Error = &'static str;
@@ -545,6 +541,25 @@ impl Display for Uuid {
             self.uu[6], self.uu[7],
             self.uu[8], self.uu[9],
             self.uu[10], self.uu[11], self.uu[12], self.uu[13], self.uu[14], self.uu[15]
+        )
+    }
+}
+
+/// UUID that is safe to display in logs.
+pub struct DisplayUuid<'a>(pub &'a Uuid);
+impl<'a> Display for DisplayUuid<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(
+            f,
+            "{:02x}{:02x}{:02x}{:02x}-xxxx-xxxx-xxxx-xxxx{:02x}{:02x}{:02x}{:02x}",
+            self.0.uu[0],
+            self.0.uu[1],
+            self.0.uu[2],
+            self.0.uu[3],
+            self.0.uu[12],
+            self.0.uu[13],
+            self.0.uu[14],
+            self.0.uu[15]
         )
     }
 }
@@ -910,27 +925,30 @@ mod ffi {
     }
 }
 
-/// The RawAddress directly exported from the bindings.
+/// Generate impl cxx::ExternType for RawAddress and Uuid.
 ///
-/// To make use of RawAddress in cxx::bridge C++ blocks,
+/// To make use of RawAddress and Uuid in cxx::bridge C++ blocks,
 /// include the following snippet in the ffi module.
 /// ```ignore
 /// #[cxx::bridge(namespace = bluetooth::topshim::rust)]
 /// mod ffi {
 ///     unsafe extern "C++" {
-///         include!("gd/rust/topshim/common/type_alias.h");
+///         include!("types/raw_address.h");
+///         include!("types/bluetooth/uuid.h");
+///
+///         #[namespace = ""]
 ///         type RawAddress = crate::btif::RawAddress;
+///
+///         #[namespace = "bluetooth"]
+///         type Uuid = crate::btif::Uuid;
 ///     }
 ///     // Place you shared stuff here.
 /// }
 /// ```
+#[gen_cxx_extern_trivial]
 pub type RawAddress = bindings::RawAddress;
-pub type OobData = bindings::bt_oob_data_s;
-
-unsafe impl ExternType for RawAddress {
-    type Id = type_id!("bluetooth::topshim::rust::RawAddress");
-    type Kind = cxx::kind::Trivial;
-}
+#[gen_cxx_extern_trivial]
+pub type Uuid = bindings::bluetooth::Uuid;
 
 impl Hash for RawAddress {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -940,7 +958,7 @@ impl Hash for RawAddress {
 
 impl ToString for RawAddress {
     fn to_string(&self) -> String {
-        String::from(format!(
+        format!(
             "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
             self.address[0],
             self.address[1],
@@ -948,7 +966,7 @@ impl ToString for RawAddress {
             self.address[3],
             self.address[4],
             self.address[5]
-        ))
+        )
     }
 }
 
@@ -1006,6 +1024,8 @@ impl<'a> Display for DisplayAddress<'a> {
         }
     }
 }
+
+pub type OobData = bindings::bt_oob_data_s;
 
 /// An enum representing `bt_callbacks_t` from btif.
 #[derive(Clone, Debug)]
@@ -1451,6 +1471,10 @@ impl BluetoothInterface {
 
     pub(crate) fn as_raw_ptr(&self) -> *const u8 {
         self.internal.raw as *const u8
+    }
+
+    pub fn dump(&self, fd: RawFd) {
+        ccall!(self, dump, fd, std::ptr::null_mut())
     }
 }
 

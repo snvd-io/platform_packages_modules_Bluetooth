@@ -4,8 +4,8 @@ use bt_topshim::btif::{
     BaseCallbacks, BaseCallbacksDispatcher, BluetoothInterface, BluetoothProperty, BtAclState,
     BtAddrType, BtBondState, BtConnectionDirection, BtConnectionState, BtDeviceType, BtDiscMode,
     BtDiscoveryState, BtHciErrorCode, BtPinCode, BtPropertyType, BtScanMode, BtSspVariant, BtState,
-    BtStatus, BtThreadEvent, BtTransport, BtVendorProductInfo, DisplayAddress, RawAddress,
-    ToggleableProfile, Uuid, INVALID_RSSI,
+    BtStatus, BtThreadEvent, BtTransport, BtVendorProductInfo, DisplayAddress, DisplayUuid,
+    RawAddress, ToggleableProfile, Uuid, INVALID_RSSI,
 };
 use bt_topshim::{
     controller, metrics,
@@ -34,10 +34,12 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::Write;
+use std::os::fd::AsRawFd;
 use std::process;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use std::time::Instant;
+use tempfile::NamedTempFile;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 use tokio::time;
@@ -47,7 +49,7 @@ use crate::bluetooth_admin::{BluetoothAdmin, IBluetoothAdmin};
 use crate::bluetooth_gatt::{
     BluetoothGatt, GattActions, IBluetoothGatt, IScannerCallback, ScanResult,
 };
-use crate::bluetooth_media::{BluetoothMedia, IBluetoothMedia, MediaActions};
+use crate::bluetooth_media::{BluetoothMedia, IBluetoothMedia, MediaActions, LEA_UNKNOWN_GROUP_ID};
 use crate::callbacks::Callbacks;
 use crate::socket_manager::SocketActions;
 use crate::uuid::{Profile, UuidHelper};
@@ -258,6 +260,13 @@ pub trait IBluetooth {
 
     /// Returns whether LE Audio is supported.
     fn is_le_audio_supported(&self) -> bool;
+
+    /// Returns whether the remote device is a dual mode audio sink device (supports both classic and
+    /// LE Audio sink roles).
+    fn is_dual_mode_audio_sink_device(&self, device: BluetoothDevice) -> bool;
+
+    /// Gets diagnostic output.
+    fn get_dumpsys(&self) -> String;
 }
 
 /// Adapter API for Bluetooth qualification and verification.
@@ -2246,7 +2255,7 @@ impl IBluetooth for Bluetooth {
         let intf = self.intf.lock().unwrap();
 
         // Checks if the duration is valid.
-        if mode == BtDiscMode::LimitedDiscoverable && (duration > 60 || duration <= 0) {
+        if mode == BtDiscMode::LimitedDiscoverable && (duration > 60 || duration == 0) {
             warn!("Invalid duration for setting the device into limited discoverable mode. The valid duration is 1~60 seconds.");
             return false;
         }
@@ -2971,6 +2980,39 @@ impl IBluetooth for Bluetooth {
         // See Core 5.3, Vol 6, 4.6 FEATURE SUPPORT
         self.le_local_supported_features >> 28 & 1 == 1u64
     }
+
+    fn is_dual_mode_audio_sink_device(&self, device: BluetoothDevice) -> bool {
+        fn is_dual_mode(uuids: Vec<Uuid>) -> bool {
+            fn get_unwrapped_uuid(profile: Profile) -> Uuid {
+                *UuidHelper::get_profile_uuid(&profile).unwrap_or(&Uuid::empty())
+            }
+
+            uuids.contains(&get_unwrapped_uuid(Profile::LeAudio))
+                && (uuids.contains(&get_unwrapped_uuid(Profile::A2dpSink))
+                    || uuids.contains(&get_unwrapped_uuid(Profile::Hfp)))
+        }
+
+        let media = self.bluetooth_media.lock().unwrap();
+        let group_id = media.get_group_id(device.address);
+        if group_id == LEA_UNKNOWN_GROUP_ID {
+            return is_dual_mode(self.get_remote_uuids(device));
+        }
+
+        // Check if any device in the CSIP group is a dual mode audio sink device
+        media.get_group_devices(group_id).iter().any(|addr| {
+            is_dual_mode(self.get_remote_uuids(BluetoothDevice::new(*addr, "".to_string())))
+        })
+    }
+
+    fn get_dumpsys(&self) -> String {
+        NamedTempFile::new()
+            .and_then(|file| {
+                let fd = file.as_raw_fd();
+                self.intf.lock().unwrap().dump(fd);
+                std::fs::read_to_string(file.path())
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl BtifSdpCallbacks for Bluetooth {
@@ -3010,7 +3052,7 @@ impl BtifSdpCallbacks for Bluetooth {
             "Sdp search result found: Status={:?} Address={} Uuid={}",
             status,
             DisplayAddress(&address),
-            uuid
+            DisplayUuid(&uuid)
         );
     }
 }
