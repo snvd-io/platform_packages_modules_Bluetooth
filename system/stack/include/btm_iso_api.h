@@ -227,11 +227,6 @@ class IsoManager {
                               uint16_t length);
 
   /**
-   * Return the current number of ISO channels
-   */
-  virtual int GetNumberOfActiveIso();
-
-  /**
    * Starts the IsoManager module
    */
   void Start();
