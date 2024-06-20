@@ -238,6 +238,7 @@ protected:
   bool use_cis_retry_cnt_;
   int retry_cis_established_cnt_;
   bool do_not_send_cis_establish_event_;
+  bool do_not_send_cis_disconnected_event_;
   uint8_t overwrite_cis_status_idx_;
   std::vector<uint8_t> cis_status_;
 
@@ -260,6 +261,7 @@ protected:
     retry_cis_established_cnt_ = 0;
     overwrite_cis_status_ = false;
     do_not_send_cis_establish_event_ = false;
+    do_not_send_cis_disconnected_event_ = false;
     stay_in_releasing_state_ = false;
     stop_inject_configured_ase_after_first_ase_configured_ = false;
     cis_status_.clear();
@@ -528,6 +530,11 @@ protected:
 
               ASSERT_NE(cis_handle, kInvalidCisConnHandle);
 
+              if (do_not_send_cis_disconnected_event_) {
+                log::debug("Don't send cis disconnected event");
+                return;
+              }
+
               auto dev_it = std::find_if(le_audio_devices_.begin(), le_audio_devices_.end(),
                                          [&cis_handle](auto& dev) {
                                            auto ases = dev->GetAsesByCisConnHdl(cis_handle);
@@ -673,6 +680,11 @@ protected:
     addresses_.push_back(leAudioDevice->address_);
 
     return leAudioDevice;
+  }
+
+  LeAudioDeviceGroup* GroupFindById(int group_id) {
+    return le_audio_device_groups_.count(group_id) ? le_audio_device_groups_[group_id].get()
+                                                   : nullptr;
   }
 
   LeAudioDeviceGroup* GroupTheDevice(int group_id,
@@ -985,6 +997,44 @@ protected:
         i++;
       }
     }
+  }
+
+  void DeviceContextsUpdate(LeAudioDevice* leAudioDevice, uint8_t direction,
+                            types::AudioContexts contexts_available,
+                            types::AudioContexts contexts_supported) {
+    types::AudioContexts snk_contexts_available;
+    types::AudioContexts src_contexts_available;
+    types::AudioContexts snk_contexts_supported;
+    types::AudioContexts src_contexts_supported;
+    /* Ensure Unspecified context is supported as per spec */
+    contexts_supported.set(kContextTypeUnspecified);
+
+    if ((direction & types::kLeAudioDirectionSink) > 0) {
+      snk_contexts_available = contexts_available;
+      snk_contexts_supported = contexts_supported;
+    } else {
+      snk_contexts_available = leAudioDevice->GetAvailableContexts(types::kLeAudioDirectionSink);
+      snk_contexts_supported = leAudioDevice->GetSupportedContexts(types::kLeAudioDirectionSink);
+    }
+
+    if ((direction & types::kLeAudioDirectionSource) > 0) {
+      src_contexts_available = contexts_available;
+      src_contexts_supported = contexts_supported;
+    } else {
+      src_contexts_available = leAudioDevice->GetAvailableContexts(types::kLeAudioDirectionSource);
+      src_contexts_supported = leAudioDevice->GetSupportedContexts(types::kLeAudioDirectionSource);
+    }
+
+    leAudioDevice->SetSupportedContexts(
+            {.sink = snk_contexts_supported, .source = src_contexts_supported});
+    leAudioDevice->SetAvailableContexts(
+            {.sink = snk_contexts_available, .source = src_contexts_available});
+
+    auto group = GroupFindById(leAudioDevice->group_id_);
+    ASSERT_NE(group, nullptr);
+
+    /* Set the location and direction to the group (done in client.cc)*/
+    group->ReloadAudioDirections();
   }
 
   void MultipleTestDevicePrepare(int leaudio_group_id, LeAudioContextType context_type,
@@ -8591,6 +8641,121 @@ TEST_F(StateMachineTest, testStopStreamBeforeCodecConfigureIsArrived) {
   // Check if group has transitioned to a proper state
   ASSERT_EQ(group->GetState(), types::AseState::BTA_LE_AUDIO_ASE_STATE_IDLE);
   ASSERT_EQ(2, get_func_call_count("alarm_cancel"));
+}
+
+TEST_F(StateMachineTest, testAutonomousReleaseFromEnablingState) {
+  const auto context_type = kContextTypeMedia;
+  const auto audio_contexts = types::AudioContexts(context_type);
+  const auto group_id = 4;
+  const auto num_devices = 2;
+
+  ContentControlIdKeeper::GetInstance()->SetCcid(media_context, media_ccid);
+
+  // Prepare multiple fake connected devices in a group
+  auto* group = PrepareSingleTestDeviceGroup(group_id, context_type, num_devices);
+  ASSERT_EQ(group->Size(), num_devices);
+
+  auto* earbudLeft = group->GetFirstDevice();
+  EXPECT_CALL(gatt_queue, WriteCharacteristic(earbudLeft->conn_id_, earbudLeft->ctp_hdls_.val_hdl,
+                                              _, GATT_WRITE_NO_RSP, _, _))
+          .Times(AtLeast(3));
+
+  auto* earbudRight = group->GetNextDevice(earbudLeft);
+  EXPECT_CALL(gatt_queue, WriteCharacteristic(earbudRight->conn_id_, earbudRight->ctp_hdls_.val_hdl,
+                                              _, GATT_WRITE_NO_RSP, _, _))
+          .Times(AtLeast(3));
+
+  // let us decide when the HCI Disconnection Complete event and HCI Connection
+  // Established events will be reported
+  do_not_send_cis_disconnected_event_ = true;
+  do_not_send_cis_establish_event_ = true;
+
+  PrepareConfigureCodecHandler(group, 0, true);
+  PrepareConfigureQosHandler(group);
+  PrepareEnableHandler(group, 0, true, /* inject_streaming */ false);
+  PrepareDisableHandler(group);
+  PrepareReleaseHandler(group);
+
+  log::debug("[TESTING] StartStream action initiated by upper layer");
+  ASSERT_TRUE(LeAudioGroupStateMachine::Get()->StartStream(
+          group, context_type,
+          {.sink = types::AudioContexts(context_type),
+           .source = types::AudioContexts(context_type)}));
+
+  log::debug("[TESTING] left earbud indicates there are no available context at the time");
+  DeviceContextsUpdate(earbudLeft, types::kLeAudioDirectionSink, types::AudioContexts(),
+                       audio_contexts);
+
+  auto* earbudLeftAse = earbudLeft->GetFirstActiveAseByDirection(types::kLeAudioDirectionSink);
+  ASSERT_FALSE(earbudLeftAse == nullptr);
+
+  // make sure the ASE is in correct state, required in this scenario
+  ASSERT_TRUE(earbudLeftAse->state == types::AseState::BTA_LE_AUDIO_ASE_STATE_ENABLING);
+
+  log::debug("[TESTING] left earbud performs autonomous ASE state transition to Releasing state");
+  InjectAseStateNotification(earbudLeftAse, earbudLeft, group, ascs::kAseStateReleasing, nullptr);
+
+  log::debug(
+          "[TESTING] left earbud performs autonomous ASE state transition to Codec Configured "
+          "state (caching)");
+  auto* codec_configured_params = &cached_codec_configuration_map_[earbudLeftAse->id];
+  InjectAseStateNotification(earbudLeftAse, earbudLeft, group, ascs::kAseStateCodecConfigured,
+                             codec_configured_params);
+
+  auto* earbudRightAse = earbudRight->GetFirstActiveAseByDirection(types::kLeAudioDirectionSink);
+  ASSERT_FALSE(earbudRightAse == nullptr);
+
+  // make sure the ASE is in correct state, required in this scenario
+  ASSERT_TRUE(earbudRightAse->state == types::AseState::BTA_LE_AUDIO_ASE_STATE_ENABLING);
+
+  bluetooth::hci::iso_manager::cis_establish_cmpl_evt cis_establish_evt = {
+          .status = 0,
+          .cig_id = group_id,
+          .cis_conn_hdl = earbudRightAse->cis_conn_hdl,
+  };
+  log::debug("[TESTING] controller reports right earbud CIS has been successfully established");
+  LeAudioGroupStateMachine::Get()->ProcessHciNotifCisEstablished(group, earbudRight,
+                                                                 &cis_establish_evt);
+
+  std::vector<uint8_t> streaming_params{};
+  log::debug("[TESTING] InjectAseStateNotification earbudRight kAseStateStreaming");
+  InjectAseStateNotification(earbudRightAse, earbudRight, group, ascs::kAseStateStreaming,
+                             &streaming_params);
+
+  bluetooth::hci::iso_manager::cis_disconnected_evt cis_disconnected_evt = {
+          .reason = HCI_ERR_PEER_USER,
+          .cig_id = group_id,
+          .cis_conn_hdl = earbudLeftAse->cis_conn_hdl,
+  };
+  log::debug("[TESTING] controller reports left earbud CIS has been disconnected");
+  LeAudioGroupStateMachine::Get()->ProcessHciNotifCisDisconnected(group, earbudLeft,
+                                                                  &cis_disconnected_evt);
+
+  // check if group keeps streaming
+  ASSERT_EQ(group->GetState(), types::AseState::BTA_LE_AUDIO_ASE_STATE_STREAMING);
+
+  log::debug("[TESTING] the available contexts are back");
+  DeviceContextsUpdate(earbudLeft, types::kLeAudioDirectionSink, audio_contexts, audio_contexts);
+
+  // reset the handlers to default
+  PrepareEnableHandler(group);
+  do_not_send_cis_establish_event_ = false;
+  do_not_send_cis_disconnected_event_ = false;
+
+  log::debug("[TESTING] once the contexts are back, the upper layer calls AttachToStream");
+  LeAudioGroupStateMachine::Get()->AttachToStream(group, earbudLeft,
+                                                  {.sink = {media_ccid}, .source = {}});
+
+  // check if group keeps streaming
+  ASSERT_EQ(group->GetState(), types::AseState::BTA_LE_AUDIO_ASE_STATE_STREAMING);
+
+  log::debug("[TESTING] check if both are streaming");
+  earbudLeftAse = earbudLeft->GetFirstActiveAseByDirection(types::kLeAudioDirectionSink);
+  ASSERT_FALSE(earbudLeftAse == nullptr);
+  ASSERT_TRUE(earbudLeftAse->state == types::AseState::BTA_LE_AUDIO_ASE_STATE_STREAMING);
+  earbudRightAse = earbudRight->GetFirstActiveAseByDirection(types::kLeAudioDirectionSink);
+  ASSERT_FALSE(earbudRightAse == nullptr);
+  ASSERT_TRUE(earbudRightAse->state == types::AseState::BTA_LE_AUDIO_ASE_STATE_STREAMING);
 }
 
 }  // namespace internal
