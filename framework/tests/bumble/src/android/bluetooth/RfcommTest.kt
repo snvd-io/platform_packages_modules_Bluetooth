@@ -159,6 +159,98 @@ class RfcommTest {
         }
     }
 
+    @Test
+    fun connectTwoInsecureClientsSimultaneously() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket1 = createSocket(mRemoteDevice, isSecure = false, TEST_UUID)
+                val socket2 = createSocket(mRemoteDevice, isSecure = false, SERIAL_PORT_UUID)
+
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun connectTwoInsecureClientsSequentially() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket1 = createSocket(mRemoteDevice, isSecure = false, TEST_UUID)
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+
+                val socket2 = createSocket(mRemoteDevice, isSecure = false, SERIAL_PORT_UUID)
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun connectTwoSecureClientsSimultaneously() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket2 = createSocket(mRemoteDevice, isSecure = true, SERIAL_PORT_UUID)
+                val socket1 = createSocket(mRemoteDevice, isSecure = true, TEST_UUID)
+
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun connectTwoSecureClientsSequentially() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket1 = createSocket(mRemoteDevice, isSecure = true, TEST_UUID)
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+
+                val socket2 = createSocket(mRemoteDevice, isSecure = true, SERIAL_PORT_UUID)
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun connectTwoMixedClientsInsecureThenSecure() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket2 = createSocket(mRemoteDevice, isSecure = false, SERIAL_PORT_UUID)
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+
+                val socket1 = createSocket(mRemoteDevice, isSecure = true, TEST_UUID)
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun connectTwoMixedClientsSecureThenInsecure() {
+        startServer("ServerPort1", TEST_UUID) { serverId1 ->
+            startServer("ServerPort2", SERIAL_PORT_UUID) { serverId2 ->
+                val socket2 = createSocket(mRemoteDevice, isSecure = true, SERIAL_PORT_UUID)
+                acceptSocket(serverId2)
+                Truth.assertThat(socket2.isConnected).isTrue()
+
+                val socket1 = createSocket(mRemoteDevice, isSecure = false, TEST_UUID)
+                acceptSocket(serverId1)
+                Truth.assertThat(socket1.isConnected).isTrue()
+            }
+        }
+    }
+
     private fun createConnectAcceptSocket(
         isSecure: Boolean,
         server: ServerId,
