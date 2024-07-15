@@ -883,6 +883,14 @@ protected:
 
                       for (LeAudioDevice* device = group->GetFirstDevice(); device != nullptr;
                            device = group->GetNextDevice(device)) {
+                        if (!group->cig.AssignCisIds(device)) {
+                          continue;
+                        }
+
+                        if (group->cig.GetState() == types::CigState::CREATED) {
+                          group->AssignCisConnHandlesToAses(device);
+                        }
+
                         for (auto& ase : device->ases_) {
                           ase.cis_state = types::CisState::IDLE;
                           ase.data_path_state = types::DataPathState::IDLE;
