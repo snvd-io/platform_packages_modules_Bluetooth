@@ -627,6 +627,7 @@ protected:
     bluetooth::manager::SetMockBtmInterface(nullptr);
 
     le_audio_devices_.clear();
+    le_audio_device_groups_.clear();
     addresses_.clear();
     cached_codec_configuration_map_.clear();
     cached_qos_configuration_map_.clear();
