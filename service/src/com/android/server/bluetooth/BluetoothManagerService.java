@@ -1184,7 +1184,7 @@ class BluetoothManagerService {
         Log.d(TAG, "Force sleep 100 ms for propagating Bluetooth app death");
         SystemClock.sleep(100); // required to let the ActivityManager be notified of BT death
 
-        mAdapter = null;
+        mAdapter = null; // Don't call resetAdapter as we already call unbindService
         mHandler.removeMessages(MESSAGE_TIMEOUT_BIND);
     }
 
@@ -1603,12 +1603,10 @@ class BluetoothManagerService {
 
                 case MESSAGE_BLUETOOTH_SERVICE_DISCONNECTED:
                     Log.e(TAG, "MESSAGE_BLUETOOTH_SERVICE_DISCONNECTED");
-                    // if service is unbinded already, do nothing and return
-                    if (mAdapter == null) {
+
+                    if (!resetAdapter()) {
                         break;
                     }
-                    mContext.unbindService(mConnection);
-                    mAdapter = null;
 
                     // log the unexpected crash
                     addCrashLog();
@@ -1648,12 +1646,7 @@ class BluetoothManagerService {
                         ActiveLogs.add(ENABLE_DISABLE_REASON_RESTARTED, true);
                         handleEnable(mQuietEnable);
                     } else {
-                        // if service is unbinded already, do nothing and return
-                        if (mAdapter == null) {
-                            break;
-                        }
-                        mContext.unbindService(mConnection);
-                        mAdapter = null;
+                        resetAdapter();
                         Log.e(TAG, "Reach maximum retry to restart Bluetooth!");
                     }
                     break;
@@ -1863,6 +1856,15 @@ class BluetoothManagerService {
         }
     }
 
+    private boolean resetAdapter() {
+        if (mAdapter == null) {
+            return false;
+        }
+        mAdapter = null;
+        mContext.unbindService(mConnection);
+        return true;
+    }
+
     private void handleEnable(boolean quietMode) {
         mQuietEnable = quietMode;
 
@@ -2069,11 +2071,7 @@ class BluetoothManagerService {
 
         sendBluetoothServiceDownCallback();
 
-        if (mAdapter != null) {
-            mAdapter = null;
-            // Unbind
-            mContext.unbindService(mConnection);
-        }
+        resetAdapter();
 
         mHandler.removeMessages(MESSAGE_BLUETOOTH_STATE_CHANGE);
         mState.set(STATE_OFF);
