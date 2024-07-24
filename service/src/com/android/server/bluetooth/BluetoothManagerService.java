@@ -2436,42 +2436,22 @@ class BluetoothManagerService {
                                         this::enableFromAutoOn)));
     }
 
-    /**
-     * Check if BLE is supported by this platform
-     *
-     * @param context current device context
-     * @return true if BLE is supported, false otherwise
-     */
+    /** Check if BLE is supported by this platform */
     private static boolean isBleSupported(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
     }
 
-    /**
-     * Check if this is an automotive device
-     *
-     * @param context current device context
-     * @return true if this Android device is an automotive device, false otherwise
-     */
+    /** Check if this is an automotive device */
     private static boolean isAutomotive(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
-    /**
-     * Check if this is a watch device
-     *
-     * @param context current device context
-     * @return true if this Android device is a watch device, false otherwise
-     */
+    /** Check if this is a watch device */
     private static boolean isWatch(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
-    /**
-     * Check if this is a TV device
-     *
-     * @param context current device context
-     * @return true if this Android device is a TV device, false otherwise
-     */
+    /** Check if this is a TV device */
     private static boolean isTv(Context context) {
         PackageManager pm = context.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
