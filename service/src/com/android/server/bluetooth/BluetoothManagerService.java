@@ -1644,7 +1644,7 @@ class BluetoothManagerService {
                          * service restarts */
                         mEnable = true;
                         ActiveLogs.add(ENABLE_DISABLE_REASON_RESTARTED, true);
-                        handleEnable(mQuietEnable);
+                        handleEnable();
                     } else {
                         resetAdapter();
                         Log.e(TAG, "Reach maximum retry to restart Bluetooth!");
@@ -1695,7 +1695,7 @@ class BluetoothManagerService {
                         // reason; maybe the Bluetooth service wasn't encryption
                         // aware, so try binding again.
                         Log.d(TAG, "Enabled but not bound; retrying after unlock");
-                        handleEnable(mQuietEnable);
+                        handleEnable();
                     }
                     break;
             }
@@ -1736,7 +1736,7 @@ class BluetoothManagerService {
             ActiveLogs.add(ENABLE_DISABLE_REASON_USER_SWITCH, true);
             // mEnable flag could have been reset on stopBle. Reenable it.
             mEnable = true;
-            handleEnable(mQuietEnable);
+            handleEnable();
         }
     }
 
@@ -1766,53 +1766,43 @@ class BluetoothManagerService {
             setBluetoothPersistedState(BLUETOOTH_ON_BLUETOOTH);
         }
 
-        if (mAdapter != null) {
-            boolean isHandled = true;
-            switch (mState.get()) {
-                case STATE_BLE_ON:
-                    if (isBle == 1) {
-                        Log.i(TAG, "Already at BLE_ON State");
-                    } else {
-                        Log.w(TAG, "BT Enable in BLE_ON State, going to ON");
-                        bleOnToOn();
-                    }
-                    break;
-                case STATE_BLE_TURNING_ON:
-                case STATE_TURNING_ON:
-                case STATE_ON:
-                    Log.i(TAG, "MESSAGE_ENABLE: already enabled");
-                    break;
-                default:
-                    isHandled = false;
-                    break;
-            }
-            if (isHandled) return;
+        if (mState.oneOf(STATE_BLE_TURNING_ON, STATE_TURNING_ON, STATE_ON)) {
+            Log.i(TAG, "MESSAGE_ENABLE: already enabled. Current state=" + mState);
+            return;
         }
 
-        mQuietEnable = (quietEnable == 1);
-        if (mAdapter == null) {
-            handleEnable(mQuietEnable);
-        } else {
+        if (mState.oneOf(STATE_BLE_ON) && isBle == 1) {
+            Log.i(TAG, "MESSAGE_ENABLE: Already in BLE_ON while being requested to go to BLE_ON");
+            return;
+        }
+
+        if (mState.oneOf(STATE_BLE_ON)) {
+            Log.i(TAG, "MESSAGE_ENABLE: Bluetooth transition from STATE_BLE_ON to STATE_ON");
+            bleOnToOn();
+            return;
+        }
+
+        if (mAdapter != null) {
+            // TODO: b/339548431 - Adapt this after removal of Flags.explicitKillFromSystemServer
             //
-            // We need to wait until transitioned to STATE_OFF and
-            // the previous Bluetooth process has exited. The
-            // waiting period has three components:
-            // (a) Wait until the local state is STATE_OFF. This
-            //     is accomplished by sending delay a message
-            //     MESSAGE_HANDLE_ENABLE_DELAYED
-            // (b) Wait until the STATE_OFF state is updated to
-            //     all components.
-            // (c) Wait until the Bluetooth process exits, and
-            //     ActivityManager detects it.
-            // The waiting for (b) and (c) is accomplished by
-            // delaying the MESSAGE_RESTART_BLUETOOTH_SERVICE
-            // message. The delay time is backed off if Bluetooth
+            // We need to wait until transitioned to STATE_OFF and the previous Bluetooth process
+            // has exited. The waiting period has three components:
+            // (a) Wait until the local state is STATE_OFF. This is accomplished by sending delay a
+            //     message MESSAGE_HANDLE_ENABLE_DELAYED
+            // (b) Wait until the STATE_OFF state is updated to all components.
+            // (c) Wait until the Bluetooth process exits, and ActivityManager detects it.
+            //
+            // The waiting for (b) and (c) is accomplished by delaying the
+            // MESSAGE_RESTART_BLUETOOTH_SERVICE message. The delay time is backed off if Bluetooth
             // continuously failed to turn on itself.
-            //
             mWaitForEnableRetry = 0;
             mHandler.sendEmptyMessageDelayed(
                     MESSAGE_HANDLE_ENABLE_DELAYED, ENABLE_DISABLE_DELAY_MS);
+            return;
         }
+
+        mQuietEnable = (quietEnable == 1);
+        handleEnable();
     }
 
     private void handleDisableMessage() {
@@ -1865,9 +1855,7 @@ class BluetoothManagerService {
         return true;
     }
 
-    private void handleEnable(boolean quietMode) {
-        mQuietEnable = quietMode;
-
+    private void handleEnable() {
         if (mAdapter == null && !isBinding()) {
             bindToAdapter();
         } else if (!Flags.fastBindToApp() && mAdapter != null) {
