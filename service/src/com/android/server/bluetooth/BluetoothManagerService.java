@@ -2210,17 +2210,14 @@ class BluetoothManagerService {
             writer.println("  " + Log.timeToStringWithZone(time));
         }
 
-        writer.println(
-                "\n"
-                        + mBleApps.size()
-                        + " BLE app"
-                        + (mBleApps.size() == 1 ? "" : "s")
-                        + " registered");
+        writer.println("");
+        writer.println("Number of Ble app registered: " + mBleApps.size());
         for (ClientDeathRecipient app : mBleApps.values()) {
             writer.println("  " + app.getPackageName());
         }
 
-        writer.println("\nBluetoothManagerService:");
+        writer.println("");
+        writer.println("BluetoothManagerService:");
         writer.println("  mEnable:" + mEnable);
         writer.println("  mQuietEnable:" + mQuietEnable);
         writer.println("  mEnableExternal:" + mEnableExternal);
