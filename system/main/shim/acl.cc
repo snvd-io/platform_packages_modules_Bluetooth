@@ -1398,6 +1398,8 @@ void shim::legacy::Acl::OnClassicLinkDisconnected(HciHandle handle, hci::ErrorCo
 
   TeardownTime teardown_time = std::chrono::system_clock::now();
 
+  bluetooth::metrics::LogAclDisconnectionEvent(remote_address, reason, is_locally_initiated);
+
   pimpl_->handle_to_classic_connection_map_.erase(handle);
   TRY_POSTING_ON_MAIN(acl_interface_.connection.classic.on_disconnected,
                       ToLegacyHciErrorCode(hci::ErrorCode::SUCCESS), handle,
