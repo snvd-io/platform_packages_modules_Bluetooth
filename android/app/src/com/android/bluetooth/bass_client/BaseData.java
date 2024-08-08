@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -71,14 +70,9 @@ class BaseData {
         public int metaDataLength;
         public byte[] metaData;
         public byte numSubGroups;
-        public byte[] bisIndices;
         public byte index;
         public int subGroupId;
         public int level;
-        public LinkedHashSet<String> keyCodecCfgDiff;
-        public LinkedHashSet<String> keyMetadataDiff;
-        public String diffText;
-        public String description;
         public byte[] consolidatedCodecId;
         public Set<String> consolidatedMetadata;
         public Set<String> consolidatedCodecInfo;
@@ -93,18 +87,13 @@ class BaseData {
             metaDataLength = 0;
             metaData = new byte[0];
             numSubGroups = 0;
-            bisIndices = null;
             index = (byte) 0xFF;
             level = 0;
-            keyCodecCfgDiff = new LinkedHashSet<String>();
-            keyMetadataDiff = new LinkedHashSet<String>();
             consolidatedMetadata = new LinkedHashSet<String>();
             consolidatedCodecInfo = new LinkedHashSet<String>();
             consolidatedCodecId = new byte[5];
             consolidatedUniqueMetadata = new HashMap<Integer, String>();
             consolidatedUniqueCodecInfo = new HashMap<Integer, String>();
-            diffText = new String("");
-            description = new String("");
             log("BaseInformation is Initialized");
         }
 
@@ -136,49 +125,6 @@ class BaseData {
                 if (level == 1 || level == 2) {
                     log("numSubGroups: " + numSubGroups);
                 }
-            }
-            if (level == 2) {
-                log("Level2: Key Metadata differentiators");
-                if (keyMetadataDiff != null) {
-                    Iterator<String> itr = keyMetadataDiff.iterator();
-                    for (int k = 0; itr.hasNext(); k++) {
-                        log(
-                                "keyMetadataDiff:["
-                                        + k
-                                        + "]:"
-                                        + Arrays.toString(itr.next().getBytes()));
-                    }
-                }
-                log("END: Level2: Key Metadata differentiators");
-                log("Level2: Key CodecConfig differentiators");
-                if (keyCodecCfgDiff != null) {
-                    Iterator<String> itr = keyCodecCfgDiff.iterator();
-                    for (int k = 0; itr.hasNext(); k++) {
-                        log(
-                                "LEVEL2: keyCodecCfgDiff:["
-                                        + k
-                                        + "]:"
-                                        + Arrays.toString(itr.next().getBytes()));
-                    }
-                }
-                log("END: Level2: Key CodecConfig differentiators");
-                log("LEVEL2: diffText: " + diffText);
-            }
-            if (level == 3) {
-                log("Level3: Key CodecConfig differentiators");
-                if (keyCodecCfgDiff != null) {
-                    Iterator<String> itr = keyCodecCfgDiff.iterator();
-                    for (int k = 0; itr.hasNext(); k++) {
-                        log(
-                                "LEVEL3: keyCodecCfgDiff:["
-                                        + k
-                                        + "]:"
-                                        + Arrays.toString(itr.next().getBytes()));
-                    }
-                }
-                log("END: Level3: Key CodecConfig differentiators");
-                log("index: " + index);
-                log("LEVEL3: diffText: " + diffText);
             }
             log("**END: Base Information****");
         }
