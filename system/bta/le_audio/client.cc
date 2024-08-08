@@ -47,6 +47,7 @@
 #include "gatt_api.h"
 #include "hci/controller_interface.h"
 #include "internal_include/stack_config.h"
+#include "le_audio/device_groups.h"
 #include "le_audio_health_status.h"
 #include "le_audio_set_configuration_provider.h"
 #include "le_audio_types.h"
@@ -59,6 +60,7 @@
 #include "stack/include/acl_api.h"
 #include "stack/include/bt_types.h"
 #include "stack/include/btm_client_interface.h"
+#include "stack/include/btm_status.h"
 #include "stack/include/main_thread.h"
 #include "state_machine.h"
 #include "storage_helper.h"
@@ -987,7 +989,45 @@ public:
   void SetCodecConfigPreference(
           int group_id, bluetooth::le_audio::btle_audio_codec_config_t input_codec_config,
           bluetooth::le_audio::btle_audio_codec_config_t output_codec_config) override {
-    // TODO Implement
+    if (!com::android::bluetooth::flags::leaudio_set_codec_config_preference()) {
+      log::debug("leaudio_set_codec_config_preference flag is not enabled");
+      return;
+    }
+
+    LeAudioDeviceGroup* group = aseGroups_.FindById(group_id);
+
+    if (!group) {
+      log::error("Unknown group id: %d", group_id);
+    }
+
+    if (group->SetPreferredAudioSetConfiguration(input_codec_config, output_codec_config)) {
+      log::info("group id: {}, setting preferred codec is successful.", group_id);
+    } else {
+      log::warn("group id: {}, setting preferred codec is failed.", group_id);
+      return;
+    }
+
+    if (group_id != active_group_id_) {
+      log::warn("Selected group is not active.");
+      return;
+    }
+
+    if (SetConfigurationAndStopStreamWhenNeeded(group, group->GetConfigurationContextType())) {
+      log::debug("Group id {} do the reconfiguration based on preferred codec config", group_id);
+    } else {
+      log::debug("Group id {} preferred codec config is not changed", group_id);
+    }
+  }
+
+  bool IsUsingPreferredCodecConfig(int group_id, int context_type) {
+    LeAudioDeviceGroup* group = aseGroups_.FindById(group_id);
+    if (!group) {
+      log::error("Unknown group id: %d", group_id);
+      return false;
+    }
+
+    return group->IsUsingPreferredAudioSetConfiguration(
+            static_cast<LeAudioContextType>(context_type));
   }
 
   void SetCcidInformation(int ccid, int context_type) override {
@@ -2115,7 +2155,8 @@ public:
       return;
     }
 
-    int result = BTM_SetEncryption(address, BT_TRANSPORT_LE, nullptr, nullptr, BTM_BLE_SEC_ENCRYPT);
+    tBTM_STATUS result =
+            BTM_SetEncryption(address, BT_TRANSPORT_LE, nullptr, nullptr, BTM_BLE_SEC_ENCRYPT);
 
     log::info("Encryption required for {}. Request result: 0x{:02x}", address, result);
 
@@ -2192,7 +2233,7 @@ public:
     }
   }
 
-  void OnEncryptionComplete(const RawAddress& address, uint8_t status) {
+  void OnEncryptionComplete(const RawAddress& address, tBTM_STATUS status) {
     log::info("{} status 0x{:02x}", address, status);
     LeAudioDevice* leAudioDevice = leAudioDevices_.FindByAddress(address);
     if (leAudioDevice == NULL || (leAudioDevice->conn_id_ == GATT_INVALID_CONN_ID)) {
@@ -2202,7 +2243,7 @@ public:
     }
 
     if (status != BTM_SUCCESS) {
-      log::error("Encryption failed status: {}", int{status});
+      log::error("Encryption failed status: {}", btm_status_text(status));
       if (leAudioDevice->GetConnectionState() ==
           DeviceConnectState::CONNECTED_BY_USER_GETTING_READY) {
         callbacks_->OnConnectionState(ConnectionState::DISCONNECTED, address);
@@ -4170,7 +4211,10 @@ public:
 
   inline bool IsDirectionAvailableForCurrentConfiguration(const LeAudioDeviceGroup* group,
                                                           uint8_t direction) const {
-    auto current_config = group->GetCachedConfiguration(configuration_context_type_);
+    auto current_config =
+            group->IsUsingPreferredAudioSetConfiguration(configuration_context_type_)
+                    ? group->GetCachedPreferredConfiguration(configuration_context_type_)
+                    : group->GetCachedConfiguration(configuration_context_type_);
     if (current_config) {
       return current_config->confs.get(direction).size() != 0;
     }
@@ -5758,7 +5802,7 @@ void le_audio_gattc_callback(tBTA_GATTC_EVT event, tBTA_GATTC* p_data) {
       break;
 
     case BTA_GATTC_ENC_CMPL_CB_EVT: {
-      uint8_t encryption_status;
+      tBTM_STATUS encryption_status;
       if (BTM_IsEncrypted(p_data->enc_cmpl.remote_bda, BT_TRANSPORT_LE)) {
         encryption_status = BTM_SUCCESS;
       } else {
