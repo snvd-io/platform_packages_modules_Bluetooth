@@ -22,13 +22,9 @@ import android.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.MissingResourceException;
-import java.util.Set;
 
 /** Helper class to parse the Broadcast Announcement BASE data */
 class BaseData {
@@ -71,11 +67,6 @@ class BaseData {
         public byte index;
         public int subGroupId;
         public int level;
-        public byte[] consolidatedCodecId;
-        public Set<String> consolidatedMetadata;
-        public Set<String> consolidatedCodecInfo;
-        public HashMap<Integer, String> consolidatedUniqueCodecInfo;
-        public HashMap<Integer, String> consolidatedUniqueMetadata;
 
         BaseInformation() {
             presentationDelay = new byte[3];
@@ -87,11 +78,6 @@ class BaseData {
             numSubGroups = 0;
             index = (byte) 0xFF;
             level = 0;
-            consolidatedMetadata = new LinkedHashSet<String>();
-            consolidatedCodecInfo = new LinkedHashSet<String>();
-            consolidatedCodecId = new byte[5];
-            consolidatedUniqueMetadata = new HashMap<Integer, String>();
-            consolidatedUniqueCodecInfo = new HashMap<Integer, String>();
             log("BaseInformation is Initialized");
         }
 
@@ -229,53 +215,6 @@ class BaseData {
             consolidateBaseofLevelThree(
                     levelTwo, levelThree, i, startIdx, levelTwo.get(i).numSubGroups);
         }
-        // Eliminate Duplicates at Level 3
-        for (int i = 0; i < levelThree.size(); i++) {
-            Map<Integer, String> uniqueMds = new HashMap<Integer, String>();
-            Map<Integer, String> uniqueCcis = new HashMap<Integer, String>();
-            Set<String> Csfs = levelThree.get(i).consolidatedCodecInfo;
-            if (Csfs.size() > 0) {
-                for (String codecInfo : Csfs) {
-                    byte[] ltvEntries = codecInfo.getBytes();
-                    int k = 0;
-                    byte length = ltvEntries[k++];
-                    byte[] ltv = new byte[length + 1];
-                    ltv[0] = length;
-                    System.arraycopy(ltvEntries, k, ltv, 1, length);
-                    int type = (int) ltv[1];
-                    String s = uniqueCcis.get(type);
-                    String ltvS = new String(ltv);
-                    if (s == null) {
-                        uniqueCcis.put(type, ltvS);
-                    } else {
-                        // if same type exists, replace
-                        uniqueCcis.replace(type, ltvS);
-                    }
-                }
-            }
-            Set<String> Mds = levelThree.get(i).consolidatedMetadata;
-            if (Mds.size() > 0) {
-                for (String metadata : Mds) {
-                    byte[] ltvEntries = metadata.getBytes();
-                    int k = 0;
-                    byte length = ltvEntries[k++];
-                    byte[] ltv = new byte[length + 1];
-                    ltv[0] = length;
-                    System.arraycopy(ltvEntries, k, ltv, 1, length);
-                    int type = (int) ltv[1];
-                    String s = uniqueCcis.get(type);
-                    String ltvS = new String(ltv);
-                    if (s == null) {
-                        uniqueMds.put(type, ltvS);
-                    } else {
-                        uniqueMds.replace(type, ltvS);
-                    }
-                }
-            }
-            levelThree.get(i).consolidatedUniqueMetadata = new HashMap<Integer, String>(uniqueMds);
-            levelThree.get(i).consolidatedUniqueCodecInfo =
-                    new HashMap<Integer, String>(uniqueCcis);
-        }
     }
 
     static void consolidateBaseofLevelThree(
@@ -286,25 +225,6 @@ class BaseData {
             int numNodes) {
         for (int i = startIdx; i < startIdx + numNodes || i < levelThree.size(); i++) {
             levelThree.get(i).subGroupId = levelTwo.get(parentSubgroup).subGroupId;
-            log("Copy Codec Id from Level2 Parent" + parentSubgroup);
-            System.arraycopy(
-                    levelTwo.get(parentSubgroup).consolidatedCodecId,
-                    0,
-                    levelThree.get(i).consolidatedCodecId,
-                    0,
-                    5);
-            // Metadata clone from Parent
-            levelThree.get(i).consolidatedMetadata =
-                    new LinkedHashSet<String>(levelTwo.get(parentSubgroup).consolidatedMetadata);
-            // CCI clone from Parent
-            levelThree.get(i).consolidatedCodecInfo =
-                    new LinkedHashSet<String>(levelTwo.get(parentSubgroup).consolidatedCodecInfo);
-            // Append Level 2 Codec Config
-            if (levelThree.get(i).codecConfigLength != 0) {
-                log("append level 3 cci to level 3 cons:" + i);
-                String s = new String(levelThree.get(i).codecConfigInfo);
-                levelThree.get(i).consolidatedCodecInfo.add(s);
-            }
         }
     }
 
