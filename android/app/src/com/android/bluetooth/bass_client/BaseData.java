@@ -33,13 +33,11 @@ import java.util.Set;
 /** Helper class to parse the Broadcast Announcement BASE data */
 class BaseData {
     private static final String TAG = "Bassclient-BaseData";
-    private static final byte UNKNOWN_CODEC = (byte) 0xFE;
     private static final int METADATA_LEVEL1 = 1;
     private static final int METADATA_LEVEL2 = 2;
     private static final int METADATA_LEVEL3 = 3;
     private static final int METADATA_PRESENTATIONDELAY_LENGTH = 3;
     private static final int METADATA_CODEC_LENGTH = 5;
-    private static final int METADATA_UNKNOWN_CODEC_LENGTH = 1;
     private static final int CODEC_CONFIGURATION_SAMPLE_RATE_TYPE = 0x01;
     private static final int CODEC_CONFIGURATION_FRAME_DURATION_TYPE = 0x02;
     private static final int CODEC_CONFIGURATION_CHANNEL_ALLOCATION_TYPE = 0x03;
@@ -95,10 +93,6 @@ class BaseData {
             consolidatedUniqueMetadata = new HashMap<Integer, String>();
             consolidatedUniqueCodecInfo = new HashMap<Integer, String>();
             log("BaseInformation is Initialized");
-        }
-
-        boolean isCodecIdUnknown() {
-            return (codecId != null && codecId[4] == (byte) UNKNOWN_CODEC);
         }
 
         void print() {
@@ -193,21 +187,9 @@ class BaseData {
         BaseInformation node = new BaseInformation();
         node.level = METADATA_LEVEL2;
         node.subGroupId = groupIndex;
-        node.numSubGroups = serviceData[offset++];
-        if (serviceData[offset] == (byte) UNKNOWN_CODEC) {
-            // Place It in the last byte of codecID
-            System.arraycopy(
-                    serviceData,
-                    offset,
-                    node.codecId,
-                    METADATA_CODEC_LENGTH - 1,
-                    METADATA_UNKNOWN_CODEC_LENGTH);
-            offset += METADATA_UNKNOWN_CODEC_LENGTH;
-            log("codecId is FE");
-        } else {
-            System.arraycopy(serviceData, offset, node.codecId, 0, METADATA_CODEC_LENGTH);
-            offset += METADATA_CODEC_LENGTH;
-        }
+        node.numSubGroups = serviceData[offset++]; // NumBis
+        System.arraycopy(serviceData, offset, node.codecId, 0, METADATA_CODEC_LENGTH);
+        offset += METADATA_CODEC_LENGTH;
         node.codecConfigLength = serviceData[offset++] & 0xff;
         if (node.codecConfigLength != 0) {
             node.codecConfigInfo = new byte[node.codecConfigLength];
