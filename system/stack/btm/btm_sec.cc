@@ -45,6 +45,7 @@
 #include "main/shim/acl_api.h"
 #include "main/shim/entry.h"
 #include "main/shim/helpers.h"
+#include "metrics/bluetooth_event.h"
 #include "osi/include/allocator.h"
 #include "osi/include/properties.h"
 #include "stack/btm/btm_ble_int.h"
@@ -2169,7 +2170,6 @@ tBTM_SEC_DEV_REC* btm_rnr_add_name_to_security_record(const RawAddress* p_bd_add
             "name:{} classic_link:{}",
             tBTM_SEC_CB::btm_pair_state_descr(btm_sec_cb.pairing_state),
             reinterpret_cast<char const*>(p_bd_name), p_dev_rec->sec_rec.classic_link);
-
     bd_name_copy(p_dev_rec->sec_bd_name, p_bd_name);
     p_dev_rec->sec_rec.sec_flags |= BTM_SEC_NAME_KNOWN;
     log::verbose("setting BTM_SEC_NAME_KNOWN sec_flags:0x{:x}", p_dev_rec->sec_rec.sec_flags);
@@ -2185,6 +2185,8 @@ tBTM_SEC_DEV_REC* btm_rnr_add_name_to_security_record(const RawAddress* p_bd_add
      * clients can continue */
     p_dev_rec->sec_bd_name[0] = 0;
   }
+
+  bluetooth::metrics::LogRemoteNameRequestCompletion(bd_addr, hci_status);
 
   /* Notify all clients waiting for name to be resolved */
   call_registered_rmt_name_callbacks(&bd_addr, p_dev_rec->dev_class, p_dev_rec->sec_bd_name,
@@ -2318,6 +2320,7 @@ void btm_sec_rmt_name_request_complete(const RawAddress* p_bd_addr, const uint8_
         /* Both we and the peer are 2.1 - continue to create connection */
         else {
           tBTM_STATUS req_status = btm_sec_dd_create_conn(p_dev_rec);
+          bluetooth::metrics::LogAclAfterRemoteNameRequest(bd_addr, req_status);
           if (req_status == tBTM_STATUS::BTM_SUCCESS) {
             await_connection = false;
           } else if (req_status != BTM_CMD_STARTED) {
@@ -2996,6 +2999,7 @@ void btm_sec_auth_complete(uint16_t handle, tHCI_STATUS status) {
   bool was_authenticating = false;
 
   if (p_dev_rec) {
+    bluetooth::metrics::LogAuthenticationComplete(p_dev_rec->bd_addr, status);
     log::verbose(
             "Security Manager: in state: {}, handle: {}, status: {}, "
             "dev->sec_rec.classic_link:{}, bda: {}, RName: {}",
