@@ -19,6 +19,8 @@
 #ifndef SRVC_DIS_INT_H
 #define SRVC_DIS_INT_H
 
+#include <queue>
+
 #include "gatt_api.h"
 #include "internal_include/bt_target.h"
 #include "srvc_api.h"
@@ -29,8 +31,15 @@
 
 typedef struct {
   tDIS_READ_CBACK* p_read_dis_cback;
+  tDIS_ATTR_MASK mask;
+  RawAddress addr;
+} tDIS_REQ;
+
+typedef struct {
+  tDIS_READ_CBACK* p_read_dis_cback;
   uint8_t dis_read_uuid_idx;
   tDIS_ATTR_MASK request_mask;
+  std::queue<tDIS_REQ> pend_reqs;
 } tDIS_CB;
 
 /* Global GATT data */
