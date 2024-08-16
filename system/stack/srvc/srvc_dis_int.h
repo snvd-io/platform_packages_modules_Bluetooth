@@ -24,29 +24,12 @@
 #include "srvc_api.h"
 #include "srvc_eng_int.h"
 
-#define DIS_MAX_CHAR_NUM 9
-
-typedef struct {
-  uint16_t uuid;
-  uint16_t handle;
-} tDIS_DB_ENTRY;
-
 #define DIS_SYSTEM_ID_SIZE 8
 #define DIS_PNP_ID_SIZE 7
 
 typedef struct {
-  tDIS_DB_ENTRY dis_attr[DIS_MAX_CHAR_NUM];
-  tDIS_VALUE dis_value;
-
   tDIS_READ_CBACK* p_read_dis_cback;
-
-  uint16_t service_handle;
-  uint16_t max_handle;
-
-  bool enabled;
-
   uint8_t dis_read_uuid_idx;
-
   tDIS_ATTR_MASK request_mask;
 } tDIS_CB;
 
