@@ -48,7 +48,6 @@
 #include "stack/include/bt_name.h"
 #include "stack/include/bt_octets.h"
 #include "stack/include/bt_types.h"
-#include "stack/include/btm_api.h"
 #include "stack/include/btm_ble_addr.h"
 #include "stack/include/btm_ble_privacy.h"
 #include "stack/include/btm_ble_sec_api.h"
@@ -1405,7 +1404,7 @@ void btm_ble_ltk_request_reply(const RawAddress& bda, bool use_stk, const Octet1
  ******************************************************************************/
 static tBTM_STATUS btm_ble_io_capabilities_req(tBTM_SEC_DEV_REC* p_dev_rec,
                                                tBTM_LE_IO_REQ* p_data) {
-  tBTM_STATUS callback_rc = BTM_SUCCESS;
+  tBTM_STATUS callback_rc = tBTM_STATUS::BTM_SUCCESS;
   log::verbose("p_dev_rec->bd_addr:{}", p_dev_rec->bd_addr);
   if (btm_sec_cb.api.p_le_callback) {
     /* the callback function implementation may change the IO capability... */
