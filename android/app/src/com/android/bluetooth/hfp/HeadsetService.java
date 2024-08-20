@@ -27,7 +27,6 @@ import static java.util.Objects.requireNonNull;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
-import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
@@ -583,7 +582,6 @@ public class HeadsetService extends ProfileService {
         }
 
         @Override
-        @SuppressLint("AndroidFrameworkRequiresPermission") // TODO: b/356478621 - remove
         public boolean setConnectionPolicy(
                 BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             HeadsetService service = getService(source);
@@ -591,8 +589,7 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
 
-            // TODO: b/356478621 - put back the permission check
-            // service.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
+            service.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
             service.enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, null);
             return service.setConnectionPolicy(device, connectionPolicy);
         }
