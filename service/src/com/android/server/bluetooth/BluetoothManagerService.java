@@ -2013,7 +2013,7 @@ class BluetoothManagerService {
 
     private void offToBleOn() {
         if (!mState.oneOf(STATE_OFF)) {
-            Log.d(TAG, "offToBleOn: Impossible transition from " + mState);
+            Log.e(TAG, "offToBleOn: Impossible transition from " + mState);
             return;
         }
         Log.d(TAG, "offToBleOn: Sending request");
@@ -2026,7 +2026,7 @@ class BluetoothManagerService {
 
     private void onToBleOn() {
         if (!mState.oneOf(STATE_ON)) {
-            Log.d(TAG, "onToBleOn: Impossible transition from " + mState);
+            Log.e(TAG, "onToBleOn: Impossible transition from " + mState);
             return;
         }
         Log.d(TAG, "onToBleOn: Sending request");
@@ -2039,7 +2039,7 @@ class BluetoothManagerService {
 
     private void bleOnToOn() {
         if (!mState.oneOf(STATE_BLE_ON)) {
-            Log.d(TAG, "bleOnToOn: Impossible transition from " + mState);
+            Log.e(TAG, "bleOnToOn: Impossible transition from " + mState);
             return;
         }
         Log.d(TAG, "bleOnToOn: sending request");
@@ -2052,7 +2052,7 @@ class BluetoothManagerService {
 
     private void bleOnToOff() {
         if (!mState.oneOf(STATE_BLE_ON)) {
-            Log.d(TAG, "bleOnToOff: Impossible transition from " + mState);
+            Log.e(TAG, "bleOnToOff: Impossible transition from " + mState);
             return;
         }
         Log.d(TAG, "bleOnToOff: Sending request");
