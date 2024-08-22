@@ -118,13 +118,13 @@ public class BassClientService extends ProfileService {
     private static final int BROADCAST_STATE_STOPPING = 3;
     private static final int BROADCAST_STATE_STREAMING = 4;
 
-    private static final int MESSAGE_SYNC_TIMEOUT = 1;
+    @VisibleForTesting static final int MESSAGE_SYNC_TIMEOUT = 1;
 
     /* 1 minute timeout for primary device reconnection in Private Broadcast case */
     private static final int DIALING_OUT_TIMEOUT_MS = 60000;
 
     // 30 secs timeout for keeping PSYNC active when searching is stopped
-    @VisibleForTesting static Duration sSyncActiveTimeout = Duration.ofSeconds(30);
+    private static final Duration sSyncActiveTimeout = Duration.ofSeconds(30);
 
     private static BassClientService sService;
 
@@ -188,7 +188,8 @@ public class BassClientService extends ProfileService {
 
     @VisibleForTesting ServiceFactory mServiceFactory = new ServiceFactory();
 
-    private final Handler mHandler =
+    @VisibleForTesting
+    final Handler mHandler =
             new Handler(Looper.getMainLooper()) {
                 @Override
                 public void handleMessage(Message msg) {
