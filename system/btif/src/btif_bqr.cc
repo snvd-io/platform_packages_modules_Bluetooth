@@ -311,16 +311,16 @@ static std::string PacketTypeToString(uint8_t packet_type) {
   }
 }
 
-void register_vse();
-void unregister_vse();
-
 static void ConfigureBqr(const BqrConfiguration& bqr_config);
+static void vendor_specific_event_callback(hci::VendorSpecificEventView vendor_specific_event_view);
 
 void EnableBtQualityReport(common::PostableContext* to_bind) {
   log::info("is_enable: {}", to_bind != nullptr);
-  if (to_bind != nullptr) {
-    to_bind_ = to_bind;
+  if (to_bind_ == to_bind) {
+    log::warn("Skipping second call (Lifecycle issue).");
+    return;
   }
+  to_bind_ = to_bind;
 
   char bqr_prop_evtmask[PROPERTY_VALUE_MAX] = {0};
   char bqr_prop_interval_ms[PROPERTY_VALUE_MAX] = {0};
@@ -350,7 +350,8 @@ void EnableBtQualityReport(common::PostableContext* to_bind) {
     bqr_config.vnd_quality_mask = static_cast<uint32_t>(atoi(bqr_prop_vnd_quality_mask));
     bqr_config.vnd_trace_mask = static_cast<uint32_t>(atoi(bqr_prop_vnd_trace_mask));
     bqr_config.report_interval_multiple = static_cast<uint32_t>(atoi(bqr_prop_interval_multiple));
-    register_vse();
+    bluetooth::shim::GetHciLayer()->RegisterVendorSpecificEventHandler(
+            hci::VseSubeventCode::BQR_EVENT, to_bind_->Bind(vendor_specific_event_callback));
     kpBqrEventQueue.Clear();
   } else {
     bqr_config.report_action = REPORT_ACTION_CLEAR;
@@ -359,7 +360,8 @@ void EnableBtQualityReport(common::PostableContext* to_bind) {
     bqr_config.vnd_quality_mask = 0;
     bqr_config.vnd_trace_mask = 0;
     bqr_config.report_interval_multiple = 0;
-    unregister_vse();
+    bluetooth::shim::GetHciLayer()->UnregisterVendorSpecificEventHandler(
+            hci::VseSubeventCode::BQR_EVENT);
   }
 
   tBTM_BLE_VSC_CB cmn_vsc_cb;
@@ -904,16 +906,6 @@ static void vendor_specific_event_callback(
   }
 
   CategorizeBqrEvent(bytes.size(), bytes.data());
-}
-
-void register_vse() {
-  bluetooth::shim::GetHciLayer()->RegisterVendorSpecificEventHandler(
-          hci::VseSubeventCode::BQR_EVENT, to_bind_->Bind(vendor_specific_event_callback));
-}
-
-void unregister_vse() {
-  bluetooth::shim::GetHciLayer()->UnregisterVendorSpecificEventHandler(
-          hci::VseSubeventCode::BQR_EVENT);
 }
 
 namespace testing {
