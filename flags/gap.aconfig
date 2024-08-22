@@ -266,3 +266,13 @@ flag {
     description: "Use non-wake alarm for LE RPA rotation. go/non-wake-alarm-for-rpa-rotation"
     bug: "360743527"
 }
+
+flag {
+    name: "gatt_disconnect_fix"
+    namespace: "bluetooth"
+    description: "Fix GATT disconnect handling"
+    bug: "361538527"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}
