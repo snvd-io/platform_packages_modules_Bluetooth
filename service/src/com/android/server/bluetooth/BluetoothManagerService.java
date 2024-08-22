@@ -76,7 +76,6 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.sysprop.BluetoothProperties;
@@ -117,7 +116,6 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
 class BluetoothManagerService {
     private static final String TAG = BluetoothManagerService.class.getSimpleName();
@@ -2337,13 +2335,6 @@ class BluetoothManagerService {
         }
         String errorMsg = null;
 
-        String flagString = "";
-        try {
-            flagString = dumpBluetoothFlags(writer);
-        } catch (Exception e) {
-            writer.println("Exception while dumping Bluetooth Flags");
-        }
-
         writer.println("Bluetooth Status");
         writer.println("  enabled: " + isEnabled());
         writer.println("  state: " + mState);
@@ -2399,7 +2390,11 @@ class BluetoothManagerService {
             args[0] = "--print";
         }
 
-        writer.println(flagString);
+        try {
+            dumpBluetoothFlags(writer);
+        } catch (Exception e) {
+            writer.println("Exception while dumping Bluetooth Flags");
+        }
 
         if (mAdapter == null) {
             errorMsg = "Bluetooth Service not connected";
@@ -2415,96 +2410,27 @@ class BluetoothManagerService {
         }
     }
 
-    private static class FlagValue {
-        private final String mSnakeName;
-        private final boolean mDefaultValue;
-        private final boolean mManuallyEnabledInJava;
-        private final boolean mManuallyEnabledInNative;
+    private void dumpBluetoothFlags(PrintWriter writer)
+            throws IllegalAccessException, InvocationTargetException {
+        writer.println("🚩Flag dump:");
 
-        FlagValue(String name, boolean defaultValue) {
-            mSnakeName = name.replaceAll("([A-Z])", "_$1").toLowerCase(Locale.US);
-            mDefaultValue = defaultValue;
-            mManuallyEnabledInJava = getJavaFlagValue();
-            mManuallyEnabledInNative = getNativeFlagValue();
-        }
-
-        private boolean getJavaFlagValue() {
-            return DeviceConfig.getBoolean(
-                    DeviceConfig.NAMESPACE_BLUETOOTH,
-                    "com.android.bluetooth.flags." + mSnakeName,
-                    false);
-        }
-
-        private boolean getNativeFlagValue() {
-            return SystemProperties.getBoolean(
-                    "persist.device_config.aconfig_flags.bluetooth.com.android.bluetooth.flags."
-                            + mSnakeName,
-                    false);
-        }
-
-        boolean isManuallyOverride() {
-            return mManuallyEnabledInJava || mManuallyEnabledInNative;
-        }
-
-        boolean isPartiallyOverride() {
-            return isManuallyOverride()
-                    && (mDefaultValue != mManuallyEnabledInJava
-                            || mDefaultValue != mManuallyEnabledInNative
-                            || mManuallyEnabledInJava != mManuallyEnabledInNative);
-        }
-
-        static String toIcon(boolean flagValue) {
-            return flagValue ? "[■]" : "[ ]";
-        }
-
-        void dump(StringBuilder sb) {
-            sb.append("\t").append(toIcon(mDefaultValue)).append(": ").append(mSnakeName);
-            if (isManuallyOverride()) {
-                sb.append(" (Manual override)");
-                if (isPartiallyOverride()) {
-                    sb.append(String.format(" (%s: Java)", toIcon(mManuallyEnabledInJava)));
-                    sb.append(String.format(" (%s: Native)", toIcon(mManuallyEnabledInNative)));
-                    sb.append(" INCONSISTENT OVERRIDE FOR THIS FLAG.")
-                            .append(" This can lead to unpredictable behavior.");
-                }
-            }
-            sb.append("\n");
-        }
-    }
-
-    private String dumpBluetoothFlags(PrintWriter writer) {
-        List<FlagValue> flags =
+        // maxLen is used to align the flag output
+        int maxLen =
                 Arrays.stream(Flags.class.getDeclaredMethods())
-                        .map(
-                                (Method m) -> {
-                                    try {
-                                        return new FlagValue(m.getName(), (boolean) m.invoke(null));
-                                    } catch (IllegalAccessException | InvocationTargetException e) {
-                                        writer.println("Exception caught while dumping flag:" + e);
-                                        throw new RuntimeException(e);
-                                    }
-                                })
-                        .collect(Collectors.toList());
+                        .map(Method::getName)
+                        .map(String::length)
+                        .max(Integer::compare)
+                        .get();
 
-        StringBuilder flagOverride = new StringBuilder();
-        flags.stream().filter(FlagValue::isManuallyOverride).forEach(f -> f.dump(flagOverride));
-        if (flagOverride.length() > 0) {
-            writer.println("🚩Some flag have a local override. Make sure this is expected");
-            if (flags.stream().anyMatch(FlagValue::isPartiallyOverride)) {
-                writer.println("CRITICAL WARNING:");
-                writer.println("\tSome flags differ between native and java code !");
-                writer.println(
-                        "\tEither they are only enabled in java or only enabled in native. This can"
-                                + " lead to critical failure and/or hard to debug issues.");
-            }
+        String fmt = "\t%s: %-" + maxLen + "s %s";
 
-            writer.println(flagOverride.toString());
-            writer.println("---------------------------------------------------------------------");
-            writer.println("");
+        for (Method m : Flags.class.getDeclaredMethods()) {
+            String flagStatus = ((Boolean) m.invoke(null)) ? "[■]" : "[ ]";
+            String name = m.getName();
+            String snakeCaseName = name.replaceAll("([A-Z])", "_$1").toLowerCase(Locale.US);
+            writer.println(String.format(fmt, flagStatus, name, snakeCaseName));
         }
-        StringBuilder flagDumpBuilder = new StringBuilder("🚩Flag dump:\n");
-        flags.stream().forEach(f -> f.dump(flagDumpBuilder));
-        return flagDumpBuilder.toString();
+        writer.println("");
     }
 
     private void dumpProto(FileDescriptor fd) {
