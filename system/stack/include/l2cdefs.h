@@ -272,7 +272,7 @@ inline std::string l2cap_cid_fixed_text(const tL2CAP_CID_FIXED& cid) {
     CASE_RETURN_STRING_HEX04(L2CAP_SMP_CID);
     CASE_RETURN_STRING_HEX04(L2CAP_SMP_BR_CID);
     CASE_RETURN_STRING_HEX04(L2CAP_BASE_APPL_CID);
-  };
+  }
   RETURN_UNKNOWN_TYPE_STRING(type, cid);
 }
 
@@ -298,13 +298,24 @@ inline std::string l2cap_cid_fixed_text(const tL2CAP_CID_FIXED& cid) {
 
 /* Define the L2CAP configuration result codes
  */
-enum tL2CAP_CFG_RESULT : uint16_t {
+enum class tL2CAP_CFG_RESULT : uint16_t {
   L2CAP_CFG_OK = 0,
   L2CAP_CFG_UNACCEPTABLE_PARAMS = 1,
   L2CAP_CFG_FAILED_NO_REASON = 2,
   L2CAP_CFG_UNKNOWN_OPTIONS = 3,
   L2CAP_CFG_PENDING = 4,
 };
+
+inline std::string l2cap_cfg_result_text(const tL2CAP_CFG_RESULT& result) {
+  switch (result) {
+    CASE_RETURN_STRING_HEX04(tL2CAP_CFG_RESULT::L2CAP_CFG_OK);
+    CASE_RETURN_STRING_HEX04(tL2CAP_CFG_RESULT::L2CAP_CFG_UNACCEPTABLE_PARAMS);
+    CASE_RETURN_STRING_HEX04(tL2CAP_CFG_RESULT::L2CAP_CFG_FAILED_NO_REASON);
+    CASE_RETURN_STRING_HEX04(tL2CAP_CFG_RESULT::L2CAP_CFG_UNKNOWN_OPTIONS);
+    CASE_RETURN_STRING_HEX04(tL2CAP_CFG_RESULT::L2CAP_CFG_PENDING);
+  }
+  RETURN_UNKNOWN_TYPE_STRING(type, result);
+}
 
 /* Define the L2CAP configuration option types
  */
