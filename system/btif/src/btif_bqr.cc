@@ -24,26 +24,25 @@
 #include <cerrno>
 #include <cstdint>
 
-#include "btif/include/btif_bqr.h"
-#include "btif/include/btif_common.h"
-#include "btif/include/btif_storage.h"
-#include "btif/include/core_callbacks.h"
 #include "btif/include/stack_manager_t.h"
+#include "btif_bqr.h"
+#include "btif_common.h"
+#include "btif_storage.h"
 #include "common/leaky_bonded_queue.h"
 #include "common/postable_context.h"
 #include "common/time_util.h"
-#include "hardware/bluetooth.h"
+#include "core_callbacks.h"
 #include "hci/hci_interface.h"
 #include "hci/hci_packets.h"
 #include "internal_include/bt_trace.h"
 #include "main/shim/entry.h"
 #include "osi/include/properties.h"
 #include "packet/raw_builder.h"
+#include "raw_address.h"
 #include "stack/btm/btm_dev.h"
 #include "stack/include/bt_types.h"
 #include "stack/include/btm_ble_api.h"
 #include "stack/include/btm_client_interface.h"
-#include "types/raw_address.h"
 
 namespace bluetooth {
 namespace bqr {
@@ -312,16 +311,16 @@ static std::string PacketTypeToString(uint8_t packet_type) {
   }
 }
 
+void register_vse();
+void unregister_vse();
+
 static void ConfigureBqr(const BqrConfiguration& bqr_config);
-static void vendor_specific_event_callback(hci::VendorSpecificEventView vendor_specific_event_view);
 
 void EnableBtQualityReport(common::PostableContext* to_bind) {
   log::info("is_enable: {}", to_bind != nullptr);
-  if (to_bind_ == to_bind) {
-    log::warn("Skipping second call (Lifecycle issue).");
-    return;
+  if (to_bind != nullptr) {
+    to_bind_ = to_bind;
   }
-  to_bind_ = to_bind;
 
   char bqr_prop_evtmask[PROPERTY_VALUE_MAX] = {0};
   char bqr_prop_interval_ms[PROPERTY_VALUE_MAX] = {0};
@@ -351,8 +350,7 @@ void EnableBtQualityReport(common::PostableContext* to_bind) {
     bqr_config.vnd_quality_mask = static_cast<uint32_t>(atoi(bqr_prop_vnd_quality_mask));
     bqr_config.vnd_trace_mask = static_cast<uint32_t>(atoi(bqr_prop_vnd_trace_mask));
     bqr_config.report_interval_multiple = static_cast<uint32_t>(atoi(bqr_prop_interval_multiple));
-    bluetooth::shim::GetHciLayer()->RegisterVendorSpecificEventHandler(
-            hci::VseSubeventCode::BQR_EVENT, to_bind_->Bind(vendor_specific_event_callback));
+    register_vse();
     kpBqrEventQueue.Clear();
   } else {
     bqr_config.report_action = REPORT_ACTION_CLEAR;
@@ -361,8 +359,7 @@ void EnableBtQualityReport(common::PostableContext* to_bind) {
     bqr_config.vnd_quality_mask = 0;
     bqr_config.vnd_trace_mask = 0;
     bqr_config.report_interval_multiple = 0;
-    bluetooth::shim::GetHciLayer()->UnregisterVendorSpecificEventHandler(
-            hci::VseSubeventCode::BQR_EVENT);
+    unregister_vse();
   }
 
   tBTM_BLE_VSC_CB cmn_vsc_cb;
@@ -666,7 +663,7 @@ static void AddLinkQualityEventToQueue(uint8_t length, const uint8_t* p_link_qua
     }
 
     if (!bd_addr.IsEmpty()) {
-      bqrItf->bqr_delivery_event(bd_addr, p_link_quality_event, length);
+      bqrItf->bqr_delivery_event(bd_addr, (uint8_t*)p_link_quality_event, length);
     } else {
       log::warn("failed to deliver BQR, bdaddr is empty");
     }
@@ -781,7 +778,10 @@ void DebugDump(int fd) {
   dprintf(fd, "\n");
 }
 
-static bt_remote_version_t btif_get_remote_version(const RawAddress& bd_addr) {
+static void btif_get_remote_version(const RawAddress& bd_addr, uint8_t& lmp_version,
+                                    uint16_t& manufacturer, uint16_t& lmp_sub_version) {
+  bt_property_t prop;
+  bt_remote_version_t info;
   uint8_t tmp_lmp_ver = 0;
   uint16_t tmp_manufacturer = 0;
   uint16_t tmp_lmp_subver = 0;
@@ -789,24 +789,21 @@ static bt_remote_version_t btif_get_remote_version(const RawAddress& bd_addr) {
   const bool status = get_btm_client_interface().peer.BTM_ReadRemoteVersion(
           bd_addr, &tmp_lmp_ver, &tmp_manufacturer, &tmp_lmp_subver);
   if (status && (tmp_lmp_ver || tmp_manufacturer || tmp_lmp_subver)) {
-    return {
-            .version = tmp_lmp_ver,
-            .sub_ver = tmp_lmp_subver,
-            .manufacturer = tmp_manufacturer,
-    };
+    lmp_version = tmp_lmp_ver;
+    manufacturer = tmp_manufacturer;
+    lmp_sub_version = tmp_lmp_subver;
+    return;
   }
 
-  bt_remote_version_t info{};
-  bt_property_t prop{
-          .type = BT_PROPERTY_REMOTE_VERSION_INFO,
-          .len = sizeof(bt_remote_version_t),
-          .val = reinterpret_cast<void*>(&info),
-  };
+  prop.type = BT_PROPERTY_REMOTE_VERSION_INFO;
+  prop.len = sizeof(bt_remote_version_t);
+  prop.val = (void*)&info;
 
   if (btif_storage_get_remote_device_property(&bd_addr, &prop) == BT_STATUS_SUCCESS) {
-    return info;
+    lmp_version = (uint8_t)info.version;
+    manufacturer = (uint16_t)info.manufacturer;
+    lmp_sub_version = (uint16_t)info.sub_ver;
   }
-  return {};
 }
 
 class BluetoothQualityReportInterfaceImpl : public bluetooth::bqr::BluetoothQualityReportInterface {
@@ -837,10 +834,13 @@ class BluetoothQualityReportInterfaceImpl : public bluetooth::bqr::BluetoothQual
       raw_data.insert(it, kVersion5_0ParamsTotalLen, 0);
     }
 
-    bt_remote_version_t info = btif_get_remote_version(bd_addr);
+    uint8_t lmp_ver = 0;
+    uint16_t lmp_subver = 0;
+    uint16_t manufacturer_id = 0;
+    btif_get_remote_version(bd_addr, lmp_ver, manufacturer_id, lmp_subver);
 
     log::info("len: {}, addr: {}, lmp_ver: {}, manufacturer_id: {}, lmp_subver: {}",
-              bqr_raw_data_len, bd_addr, info.version, info.manufacturer, info.sub_ver);
+              bqr_raw_data_len, bd_addr, lmp_ver, manufacturer_id, lmp_subver);
 
     if (callbacks == nullptr) {
       log::error("callbacks is nullptr");
@@ -849,8 +849,8 @@ class BluetoothQualityReportInterfaceImpl : public bluetooth::bqr::BluetoothQual
 
     do_in_jni_thread(
             base::BindOnce(&bluetooth::bqr::BluetoothQualityReportCallbacks::bqr_delivery_callback,
-                           base::Unretained(callbacks), bd_addr, info.version, info.sub_ver,
-                           info.manufacturer, std::move(raw_data)));
+                           base::Unretained(callbacks), bd_addr, lmp_ver, lmp_subver,
+                           manufacturer_id, std::move(raw_data)));
   }
 
 private:
@@ -904,6 +904,16 @@ static void vendor_specific_event_callback(
   }
 
   CategorizeBqrEvent(bytes.size(), bytes.data());
+}
+
+void register_vse() {
+  bluetooth::shim::GetHciLayer()->RegisterVendorSpecificEventHandler(
+          hci::VseSubeventCode::BQR_EVENT, to_bind_->Bind(vendor_specific_event_callback));
+}
+
+void unregister_vse() {
+  bluetooth::shim::GetHciLayer()->UnregisterVendorSpecificEventHandler(
+          hci::VseSubeventCode::BQR_EVENT);
 }
 
 namespace testing {
