@@ -1246,6 +1246,7 @@ class BluetoothManagerService {
             mShutdownLatencyHistogram.logSample((float) timeSpentForShutdown);
 
             // TODO: b/356931756 - Remove sleep
+            Log.d(TAG, "Force sleep 100 ms for propagating Bluetooth app death");
             SystemClock.sleep(100); // required to let the ActivityManager be notified of BT death
 
             mAdapter = null;
@@ -1840,8 +1841,10 @@ class BluetoothManagerService {
             // shut down completely before attempting to restart.
             //
             if (didDisableTimeout) {
+                Log.d(TAG, "Force sleep 3000 ms for user switch that timed out");
                 SystemClock.sleep(3000);
             } else {
+                Log.d(TAG, "Force sleep 100 ms for");
                 SystemClock.sleep(100);
             }
 
@@ -2116,6 +2119,7 @@ class BluetoothManagerService {
     }
 
     private boolean waitForState(int... states) {
+        Log.d(TAG, "Waiting " + STATE_TIMEOUT + " for state: " + Arrays.toString(states));
         return mState.waitForState(STATE_TIMEOUT, states);
     }
 
@@ -2173,6 +2177,7 @@ class BluetoothManagerService {
             mAdapterLock.readLock().unlock();
         }
 
+        Log.d(TAG, "Force sleep 500 ms for recovering from error");
         SystemClock.sleep(500);
 
         // disable
