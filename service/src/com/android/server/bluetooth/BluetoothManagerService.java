@@ -88,6 +88,7 @@ import com.android.bluetooth.flags.Flags;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.expresslog.Counter;
+import com.android.modules.expresslog.Histogram;
 import com.android.server.BluetoothManagerServiceDumpProto;
 import com.android.server.bluetooth.airplane.AirplaneModeListener;
 import com.android.server.bluetooth.satellite.SatelliteModeListener;
@@ -562,6 +563,10 @@ class BluetoothManagerService {
                     }
                 }
             };
+
+    private final Histogram mShutdownLatencyHistogram =
+            new Histogram(
+                    "bluetooth.value_shutdown_latency", new Histogram.UniformOptions(50, 0, 3000));
 
     BluetoothManagerService(@NonNull Context context, @NonNull Looper looper) {
         mContext = requireNonNull(context, "Context cannot be null");
@@ -1194,6 +1199,7 @@ class BluetoothManagerService {
             if (mAdapter == null) {
                 return;
             }
+            long currentTimeMs = System.currentTimeMillis();
 
             try {
                 mAdapter.unregisterCallback(mBluetoothCallback, mContext.getAttributionSource());
@@ -1235,6 +1241,9 @@ class BluetoothManagerService {
             } catch (TimeoutException | InterruptedException | ExecutionException e) {
                 Log.e(TAG, "Bluetooth death not received correctly after > 2000ms", e);
             }
+
+            long timeSpentForShutdown = System.currentTimeMillis() - currentTimeMs;
+            mShutdownLatencyHistogram.logSample((float) timeSpentForShutdown);
 
             // TODO: b/356931756 - Remove sleep
             SystemClock.sleep(100); // required to let the ActivityManager be notified of BT death
