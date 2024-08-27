@@ -366,6 +366,9 @@ android_app {
             // See https://r.android.com/3200511
             "-Xep:AndroidFrameworkEfficientCollections:OFF",
 
+            // Does not look pertinent in our situation
+            "-Xep:AndroidFrameworkEfficientXml:OFF",
+
             // Exclude generated files
             "-XepExcludedPaths:.*/srcjars/.*",
         ],
