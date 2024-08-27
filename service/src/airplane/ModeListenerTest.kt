@@ -94,13 +94,13 @@ class ModeListenerTest {
         }
     }
 
+    @get:Rule val testName = TestName()
+    @get:Rule val setFlagsRule = SetFlagsRule()
+
     private val looper: Looper = Looper.getMainLooper()
     private val state = BluetoothAdapterState()
     private val mContext = ApplicationProvider.getApplicationContext<Context>()
     private val resolver: ContentResolver = mContext.contentResolver
-
-    @JvmField @Rule val testName = TestName()
-    @JvmField @Rule val setFlagsRule = SetFlagsRule(SetFlagsRule.DefaultInitValueType.NULL_DEFAULT)
 
     private val userContext =
         mContext.createContextAsUser(UserHandle.of(ActivityManager.getCurrentUser()), 0)
