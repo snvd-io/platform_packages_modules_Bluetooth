@@ -111,10 +111,6 @@ java_library {
         "modules-utils-shell-command-handler",
     ],
 
-    lint: {
-        baseline_filename: "lint-baseline.xml",
-    },
-
     optimize: {
         enabled: true,
         shrink: true,
