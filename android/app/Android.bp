@@ -331,6 +331,7 @@ android_app {
             "-Xep:ClassCanBeStatic:ERROR",
             "-Xep:DateFormatConstant:ERROR",
             "-Xep:EmptyBlockTag:ERROR",
+            "-Xep:EmptyCatch:ERROR",
             "-Xep:EqualsGetClass:ERROR",
             "-Xep:FallThrough:ERROR",
             "-Xep:HidingField:ERROR",
