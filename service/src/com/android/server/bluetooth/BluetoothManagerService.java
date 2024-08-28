@@ -1226,15 +1226,18 @@ class BluetoothManagerService {
                 // TODO: b/339501753 - Properly stop Bluetooth without killing it
                 mAdapter.killBluetoothProcess();
 
-                binderDead.get(1, TimeUnit.SECONDS);
+                binderDead.get(2_000, TimeUnit.MILLISECONDS);
             } catch (android.os.DeadObjectException e) {
                 // Reduce exception to info and skip waiting (Bluetooth is dead as wanted)
                 Log.i(TAG, "Bluetooth already dead 💀");
             } catch (RemoteException e) {
                 Log.e(TAG, "Unexpected RemoteException when calling killBluetoothProcess", e);
             } catch (TimeoutException | InterruptedException | ExecutionException e) {
-                Log.e(TAG, "Bluetooth death not received correctly", e);
+                Log.e(TAG, "Bluetooth death not received correctly after > 2000ms", e);
             }
+
+            // TODO: b/356931756 - Remove sleep
+            SystemClock.sleep(100); // required to let the ActivityManager be notified of BT death
 
             mAdapter = null;
             mHandler.removeMessages(MESSAGE_TIMEOUT_BIND);
