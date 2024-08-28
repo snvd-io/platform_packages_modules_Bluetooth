@@ -484,18 +484,12 @@ static bool get_cached_remote_name(const RawAddress& bd_addr, uint8_t* p_remote_
 }
 
 static uint32_t get_cod(const RawAddress* remote_bdaddr) {
-  uint32_t remote_cod;
-  bt_property_t prop_name;
-
-  /* check if we already have it in our btif_storage cache */
-  BTIF_STORAGE_FILL_PROPERTY(&prop_name, BT_PROPERTY_CLASS_OF_DEVICE, sizeof(uint32_t),
-                             &remote_cod);
-  if (btif_storage_get_remote_device_property((RawAddress*)remote_bdaddr, &prop_name) ==
-      BT_STATUS_SUCCESS) {
-    return remote_cod;
+  uint32_t remote_cod = 0;
+  if (!btif_storage_get_cod(*remote_bdaddr, &remote_cod)) {
+    remote_cod = 0;
   }
 
-  return 0;
+  return remote_cod;
 }
 
 bool check_cod(const RawAddress* remote_bdaddr, uint32_t cod) {
