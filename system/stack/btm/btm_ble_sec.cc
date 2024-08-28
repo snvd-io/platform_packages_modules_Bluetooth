@@ -106,6 +106,16 @@ void BTM_SecAddBleDevice(const RawAddress& bd_addr, tBT_DEVICE_TYPE dev_type,
                                             reinterpret_cast<char*>(&p_dev_rec->sec_bd_name))) {
       p_dev_rec->sec_rec.sec_flags |= BTM_SEC_NAME_KNOWN;
     }
+
+    uint32_t cod = 0;
+    if (com::android::bluetooth::flags::read_le_appearance() &&
+        btif_storage_get_cod(bd_addr, &cod)) {
+      DEV_CLASS dev_class = {};
+      dev_class[2] = (uint8_t)cod;
+      dev_class[1] = (uint8_t)(cod >> 8);
+      dev_class[0] = (uint8_t)(cod >> 16);
+      p_dev_rec->dev_class = dev_class;
+    }
   }
 
   if (!com::android::bluetooth::flags::name_discovery_for_le_pairing()) {
