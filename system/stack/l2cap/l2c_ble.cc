@@ -585,7 +585,8 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
     } break;
     case L2CAP_CMD_CREDIT_BASED_RECONFIG_REQ: {
       if (p + 6 > p_pkt_end) {
-        l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_UNACCAPTED_PARAM);
+        l2cu_send_ble_reconfig_rsp(p_lcb, id,
+                                   tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_UNACCAPTED_PARAM);
         return;
       }
 
@@ -596,7 +597,8 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
       if (mtu < L2CAP_CREDIT_BASED_MIN_MTU || mps < L2CAP_CREDIT_BASED_MIN_MPS ||
           mps > L2CAP_LE_MAX_MPS) {
         log::error("L2CAP - invalid params");
-        l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_UNACCAPTED_PARAM);
+        l2cu_send_ble_reconfig_rsp(p_lcb, id,
+                                   tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_UNACCAPTED_PARAM);
         return;
       }
 
@@ -614,21 +616,24 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         p_ccb = l2cu_find_ccb_by_remote_cid(p_lcb, rcid);
         if (!p_ccb) {
           log::warn("L2CAP - rcvd config req for non existing cid: 0x{:04x}", rcid);
-          l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_INVALID_DCID);
+          l2cu_send_ble_reconfig_rsp(p_lcb, id,
+                                     tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_INVALID_DCID);
           return;
         }
 
         if (p_ccb->peer_conn_cfg.mtu > mtu) {
           log::warn("L2CAP - rcvd config req mtu reduction new mtu < mtu ({} < {})", mtu,
                     p_ccb->peer_conn_cfg.mtu);
-          l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_REDUCTION_MTU_NO_ALLOWED);
+          l2cu_send_ble_reconfig_rsp(
+                  p_lcb, id, tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_REDUCTION_MTU_NO_ALLOWED);
           return;
         }
 
         if (p_ccb->peer_conn_cfg.mps > mps && num_of_channels > 1) {
           log::warn("L2CAP - rcvd config req mps reduction new mps < mps ({} < {})", mtu,
                     p_ccb->peer_conn_cfg.mtu);
-          l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_REDUCTION_MPS_NO_ALLOWED);
+          l2cu_send_ble_reconfig_rsp(
+                  p_lcb, id, tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_REDUCTION_MPS_NO_ALLOWED);
           return;
         }
       }
@@ -649,7 +654,7 @@ void l2cble_process_sig_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CREDIT_BASED_RECONFIG_REQ, &le_cfg);
       }
 
-      l2cu_send_ble_reconfig_rsp(p_lcb, id, L2CAP_RECONFIG_SUCCEED);
+      l2cu_send_ble_reconfig_rsp(p_lcb, id, tL2CAP_RECONFIG_RESULT::L2CAP_RECONFIG_SUCCEED);
 
       break;
     }
