@@ -375,7 +375,12 @@ void EnableBtQualityReport(common::PostableContext* to_bind) {
 
 void DisableBtQualityReport() {
   log::info("");
+  if (to_bind_ == nullptr) {
+    log::warn("Skipping second call (Lifecycle issue).");
+    return;
+  }
   EnableDisableBtQualityReport(false);
+  to_bind_ = nullptr;
 }
 
 static void BqrVscCompleteCallback(hci::CommandCompleteView complete);
