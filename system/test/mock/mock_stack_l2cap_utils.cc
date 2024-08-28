@@ -187,7 +187,7 @@ void l2cu_send_peer_ble_par_req(tL2C_LCB* /* p_lcb */, uint16_t /* min_int */,
                                 uint16_t /* timeout */) {
   inc_func_call_count(__func__);
 }
-void l2cu_send_peer_ble_par_rsp(tL2C_LCB* /* p_lcb */, uint16_t /* reason */,
+void l2cu_send_peer_ble_par_rsp(tL2C_LCB* /* p_lcb */, tL2CAP_CFG_RESULT /* reason */,
                                 uint8_t /* rem_id */) {
   inc_func_call_count(__func__);
 }
