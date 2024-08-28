@@ -739,7 +739,7 @@ void l2cu_send_peer_credit_based_conn_res(tL2C_CCB* p_ccb, std::vector<uint16_t>
 void l2cu_send_peer_ble_credit_based_conn_req(tL2C_CCB* p_ccb);
 void l2cu_send_peer_credit_based_conn_req(tL2C_CCB* p_ccb);
 
-void l2cu_send_ble_reconfig_rsp(tL2C_LCB* p_lcb, uint8_t rem_id, uint16_t result);
+void l2cu_send_ble_reconfig_rsp(tL2C_LCB* p_lcb, uint8_t rem_id, tL2CAP_RECONFIG_RESULT result);
 void l2cu_send_credit_based_reconfig_req(tL2C_CCB* p_ccb, tL2CAP_LE_CFG_INFO* p_data);
 
 void l2cu_send_peer_ble_flow_control_credit(tL2C_CCB* p_ccb, uint16_t credit_value);
