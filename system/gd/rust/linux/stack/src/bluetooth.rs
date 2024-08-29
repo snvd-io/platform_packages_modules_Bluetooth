@@ -48,7 +48,7 @@ use crate::bluetooth_admin::BluetoothAdminPolicyHelper;
 use crate::bluetooth_gatt::{
     BluetoothGatt, GattActions, IBluetoothGatt, IScannerCallback, ScanResult,
 };
-use crate::bluetooth_media::{BluetoothMedia, IBluetoothMedia, MediaActions, LEA_UNKNOWN_GROUP_ID};
+use crate::bluetooth_media::{BluetoothMedia, MediaActions, LEA_UNKNOWN_GROUP_ID};
 use crate::callbacks::Callbacks;
 use crate::socket_manager::SocketActions;
 use crate::uuid::{Profile, UuidHelper};
@@ -593,7 +593,7 @@ pub struct Bluetooth {
     ble_scanner_id: Option<u8>,
     ble_scanner_uuid: Option<Uuid>,
     bluetooth_gatt: Arc<Mutex<Box<BluetoothGatt>>>,
-    bluetooth_media: Arc<Mutex<Box<BluetoothMedia>>>,
+    bluetooth_media: Option<Arc<Mutex<Box<BluetoothMedia>>>>,
     callbacks: Callbacks<dyn IBluetoothCallback + Send>,
     connection_callbacks: Callbacks<dyn IBluetoothConnectionCallback + Send>,
     discovering_started: Instant,
@@ -641,7 +641,6 @@ impl Bluetooth {
         sig_notifier: Arc<SigData>,
         intf: Arc<Mutex<BluetoothInterface>>,
         bluetooth_gatt: Arc<Mutex<Box<BluetoothGatt>>>,
-        bluetooth_media: Arc<Mutex<Box<BluetoothMedia>>>,
     ) -> Bluetooth {
         Bluetooth {
             virt_index,
@@ -656,7 +655,7 @@ impl Bluetooth {
             ble_scanner_id: None,
             ble_scanner_uuid: None,
             bluetooth_gatt,
-            bluetooth_media,
+            bluetooth_media: None,
             discovering_started: Instant::now(),
             intf,
             is_connectable: false,
@@ -685,6 +684,10 @@ impl Bluetooth {
             sig_notifier,
             uhid_wakeup_source: UHid::new(),
         }
+    }
+
+    pub(crate) fn set_media(&mut self, bluetooth_media: Arc<Mutex<Box<BluetoothMedia>>>) {
+        self.bluetooth_media = Some(bluetooth_media);
     }
 
     fn update_connectable_mode(&mut self, is_sock_listening: bool) {
@@ -1279,8 +1282,10 @@ impl Bluetooth {
         };
         let device = context.info.clone();
 
-        let mut connected_profiles =
-            self.bluetooth_media.lock().unwrap().get_connected_profiles(&device);
+        let mut connected_profiles = self
+            .bluetooth_media
+            .as_ref()
+            .map_or(HashSet::new(), |media| media.lock().unwrap().get_connected_profiles(&device));
         if let Some(profile) = context.connected_hid_profile {
             connected_profiles.insert(profile);
         }
@@ -1470,9 +1475,6 @@ impl BtifBluetoothCallbacks for Bluetooth {
             }
 
             BtState::On => {
-                // Initialize media
-                self.bluetooth_media.lock().unwrap().initialize();
-
                 // Initialize core profiles
                 self.init_profiles();
 
@@ -1532,8 +1534,6 @@ impl BtifBluetoothCallbacks for Bluetooth {
                 });
                 tokio::spawn(async move {
                     let _ = api_txl.send(APIMessage::IsReady(BluetoothAPI::Adapter)).await;
-                    // TODO(b:300202052) make sure media interface is exposed after initialized
-                    let _ = api_txl.send(APIMessage::IsReady(BluetoothAPI::Media)).await;
                 });
             }
         }
@@ -2575,12 +2575,18 @@ impl IBluetooth for Bluetooth {
     fn get_profile_connection_state(&self, profile: Uuid) -> ProfileConnectionState {
         if let Some(known) = UuidHelper::is_known_profile(&profile) {
             match known {
-                Profile::A2dpSink | Profile::A2dpSource => {
-                    self.bluetooth_media.lock().unwrap().get_a2dp_connection_state()
-                }
-                Profile::Hfp | Profile::HfpAg => {
-                    self.bluetooth_media.lock().unwrap().get_hfp_connection_state()
-                }
+                Profile::A2dpSink | Profile::A2dpSource => self
+                    .bluetooth_media
+                    .as_ref()
+                    .map_or(ProfileConnectionState::Disconnected, |media| {
+                        media.lock().unwrap().get_a2dp_connection_state()
+                    }),
+                Profile::Hfp | Profile::HfpAg => self
+                    .bluetooth_media
+                    .as_ref()
+                    .map_or(ProfileConnectionState::Disconnected, |media| {
+                        media.lock().unwrap().get_hfp_connection_state()
+                    }),
                 // TODO: (b/223431229) Profile::Hid and Profile::Hogp
                 _ => ProfileConnectionState::Disconnected,
             }
@@ -2928,7 +2934,10 @@ impl IBluetooth for Bluetooth {
                     || uuids.contains(&get_unwrapped_uuid(Profile::Hfp)))
         }
 
-        let media = self.bluetooth_media.lock().unwrap();
+        let Some(media) = self.bluetooth_media.as_ref() else {
+            return false;
+        };
+        let media = media.lock().unwrap();
         let group_id = media.get_group_id(device.address);
         if group_id == LEA_UNKNOWN_GROUP_ID {
             return is_dual_mode(self.get_remote_uuids(device));
