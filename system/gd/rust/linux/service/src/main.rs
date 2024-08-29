@@ -181,11 +181,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             battery_provider_manager.clone(),
             tx.clone(),
         ))));
-        let bluetooth_media = Arc::new(Mutex::new(Box::new(BluetoothMedia::new(
-            tx.clone(),
-            intf.clone(),
-            battery_provider_manager.clone(),
-        ))));
         let bluetooth = Arc::new(Mutex::new(Box::new(Bluetooth::new(
             virt_index,
             hci_index,
@@ -194,14 +189,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             sig_notifier.clone(),
             intf.clone(),
             bluetooth_gatt.clone(),
-            bluetooth_media.clone(),
-        ))));
-        let suspend = Arc::new(Mutex::new(Box::new(Suspend::new(
-            bluetooth.clone(),
-            intf.clone(),
-            bluetooth_gatt.clone(),
-            bluetooth_media.clone(),
-            tx.clone(),
         ))));
         let bluetooth_qa = Arc::new(Mutex::new(Box::new(BluetoothQA::new(tx.clone()))));
         let dis = Arc::new(Mutex::new(Box::new(DeviceInformation::new(
@@ -209,27 +196,39 @@ fn main() -> Result<(), Box<dyn Error>> {
             tx.clone(),
         ))));
 
-        bluetooth_media.lock().unwrap().set_adapter(bluetooth.clone());
-
         bluetooth.lock().unwrap().init(init_flags, hci_index);
         bluetooth.lock().unwrap().enable();
 
         bluetooth_gatt.lock().unwrap().init_profiles(tx.clone(), api_tx.clone());
 
-        // This construction requires |intf| to be already init-ed.
+        // These constructions require |intf| to be already init-ed.
         let bt_sock_mgr = Arc::new(Mutex::new(Box::new(BluetoothSocketManager::new(
             tx.clone(),
             bt_sock_mgr_runtime,
             intf.clone(),
         ))));
+        let bluetooth_media = Arc::new(Mutex::new(Box::new(BluetoothMedia::new(
+            tx.clone(),
+            api_tx.clone(),
+            intf.clone(),
+            bluetooth.clone(),
+            battery_provider_manager.clone(),
+        ))));
 
-        // This construction doesn't need |intf| to be init-ed, but just depends on those who need.
+        // These constructions don't need |intf| to be init-ed, but just depend on those who need.
         let bluetooth_admin = Arc::new(Mutex::new(Box::new(BluetoothAdmin::new(
             String::from(ADMIN_SETTINGS_FILE_PATH),
             tx.clone(),
             bluetooth.clone(),
             bluetooth_media.clone(),
             bt_sock_mgr.clone(),
+        ))));
+        let suspend = Arc::new(Mutex::new(Box::new(Suspend::new(
+            bluetooth.clone(),
+            intf.clone(),
+            bluetooth_gatt.clone(),
+            bluetooth_media.clone(),
+            tx.clone(),
         ))));
 
         // Run the stack main dispatch loop.
