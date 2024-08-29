@@ -1657,8 +1657,7 @@ static tBTM_STATUS btm_ble_sirk_verification_req(const RawAddress& bd_addr) {
  *  Description     This function is the SMP callback handler.
  *
  *****************************************************************************/
-tBTM_STATUS btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
-                               const tSMP_EVT_DATA* p_data) {
+tBTM_STATUS btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr, tSMP_EVT_DATA* p_data) {
   log::verbose("bd_addr:{}, event={}", bd_addr, smp_evt_to_text(event));
 
   if (event == SMP_SC_LOC_OOB_DATA_UP_EVT) {
@@ -1676,11 +1675,11 @@ tBTM_STATUS btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
   tBTM_STATUS status = tBTM_STATUS::BTM_SUCCESS;
   switch (event) {
     case SMP_IO_CAP_REQ_EVT:
-      btm_ble_io_capabilities_req(p_dev_rec, (tBTM_LE_IO_REQ*)&p_data->io_req);
+      btm_ble_io_capabilities_req(p_dev_rec, reinterpret_cast<tBTM_LE_IO_REQ*>(&p_data->io_req));
       break;
 
     case SMP_BR_KEYS_REQ_EVT:
-      btm_ble_br_keys_req(p_dev_rec, (tBTM_LE_IO_REQ*)&p_data->io_req);
+      btm_ble_br_keys_req(p_dev_rec, reinterpret_cast<tBTM_LE_IO_REQ*>(&p_data->io_req));
       break;
 
     case SMP_PASSKEY_REQ_EVT:
@@ -1689,23 +1688,24 @@ tBTM_STATUS btm_proc_smp_cback(tSMP_EVT event, const RawAddress& bd_addr,
     case SMP_NC_REQ_EVT:
     case SMP_SC_OOB_REQ_EVT:
       btm_ble_user_confirmation_req(bd_addr, p_dev_rec, static_cast<tBTM_LE_EVT>(event),
-                                    (tBTM_LE_EVT_DATA*)p_data);
+                                    reinterpret_cast<tBTM_LE_EVT_DATA*>(p_data));
       break;
 
     case SMP_SEC_REQUEST_EVT:
-      btm_ble_sec_req(bd_addr, p_dev_rec, (tBTM_LE_EVT_DATA*)p_data);
+      btm_ble_sec_req(bd_addr, p_dev_rec, reinterpret_cast<tBTM_LE_EVT_DATA*>(p_data));
       break;
 
     case SMP_CONSENT_REQ_EVT:
-      btm_ble_consent_req(bd_addr, (tBTM_LE_EVT_DATA*)p_data);
+      btm_ble_consent_req(bd_addr, reinterpret_cast<tBTM_LE_EVT_DATA*>(p_data));
       break;
 
     case SMP_COMPLT_EVT:
-      btm_ble_complete_evt(bd_addr, p_dev_rec, (tBTM_LE_EVT_DATA*)p_data);
+      btm_ble_complete_evt(bd_addr, p_dev_rec, reinterpret_cast<tBTM_LE_EVT_DATA*>(p_data));
       break;
 
     case SMP_LE_ADDR_ASSOC_EVT:
-      BTM_BLE_SEC_CALLBACK(static_cast<tBTM_LE_EVT>(event), bd_addr, (tBTM_LE_EVT_DATA*)p_data);
+      BTM_BLE_SEC_CALLBACK(static_cast<tBTM_LE_EVT>(event), bd_addr,
+                           reinterpret_cast<tBTM_LE_EVT_DATA*>(p_data));
       break;
 
     case SMP_SIRK_VERIFICATION_REQ_EVT:
