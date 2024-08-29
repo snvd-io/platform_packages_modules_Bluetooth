@@ -53,6 +53,7 @@ import org.junit.runner.RunWith
 import pandora.HostProto.Connection
 import pandora.l2cap.L2CAPProto.CreditBasedChannelRequest
 import pandora.l2cap.L2CAPProto.ReceiveRequest
+import pandora.l2cap.L2CAPProto.ReceiveResponse
 import pandora.l2cap.L2CAPProto.WaitConnectionRequest
 import pandora.l2cap.L2CAPProto.WaitConnectionResponse
 import pandora.l2cap.L2CAPProto.WaitDisconnectionRequest
@@ -139,7 +140,8 @@ public class DckL2capClientTest() : Closeable {
                 Utils.BUMBLE_RANDOM_ADDRESS,
                 BluetoothDevice.ADDRESS_TYPE_RANDOM
             )
-        // WaitConnection
+
+        Log.d(TAG, "testReceive: Connect L2CAP")
         val bluetoothSocket = createSocket(dckSpsm, remoteDevice)
         runBlocking {
             val waitFlow = flow { emit(waitConnection(dckSpsm, remoteDevice)) }
@@ -150,31 +152,30 @@ public class DckL2capClientTest() : Closeable {
         assertThat(connectionResponse.hasChannel()).isTrue()
 
         val channel = connectionResponse.channel
-        val sampleData: ByteArray = "testReceive Sample Test Data".toByteArray()
+        val sampleData = "cafe-baguette".toByteArray()
 
-        scope.launch {
-            val deadline =
-                Deadline.after(CHANNEL_READ_TIMEOUT.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-            val receiveResponse =
-                mBumble
-                    .l2capBlocking()
-                    .withDeadline(deadline)
-                    .receive(ReceiveRequest.newBuilder().setChannel(channel).build())
-            assertThat(receiveResponse.next().data).isEqualTo(ByteString.copyFrom(sampleData))
-        }
-        Log.d(TAG, "testReceive: write started")
+        val receiveObserver = StreamObserverSpliterator<ReceiveResponse>()
+        mBumble
+            .l2cap()
+            .receive(ReceiveRequest.newBuilder().setChannel(channel).build(), receiveObserver)
+
+        Log.d(TAG, "testReceive: Send data from Android to Bumble")
         val outputStream = bluetoothSocket.outputStream
         outputStream.write(sampleData)
         outputStream.flush()
-        Log.d(TAG, "testReceive: write completed")
 
-        // WaitDisconnection
+        Log.d(TAG, "testReceive: waitReceive data on Bumble")
+        val receiveData = receiveObserver.iterator().next()
+        assertThat(receiveData.data.toByteArray()).isEqualTo(sampleData)
+
         bluetoothSocket.close()
+        Log.d(TAG, "testReceive: waitDisconnection")
         val waitDisconnectionRequest =
             WaitDisconnectionRequest.newBuilder().setChannel(channel).build()
         val disconnectionResponse =
             mBumble.l2capBlocking().waitDisconnection(waitDisconnectionRequest)
         assertThat(disconnectionResponse.hasSuccess()).isTrue()
+        Log.d(TAG, "testReceive: done")
     }
 
     private fun readDckSpsm(gatt: BluetoothGatt) = runBlocking {
@@ -227,7 +228,6 @@ public class DckL2capClientTest() : Closeable {
         remoteDevice: BluetoothDevice,
         isSecure: Boolean = false
     ): BluetoothSocket {
-        Log.d(TAG, "createSocket")
         var socket: BluetoothSocket
         var expectedType: Int
         if (isSecure) {
