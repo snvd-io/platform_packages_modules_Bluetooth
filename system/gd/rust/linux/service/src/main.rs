@@ -186,10 +186,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             intf.clone(),
             battery_provider_manager.clone(),
         ))));
-        let bluetooth_admin = Arc::new(Mutex::new(Box::new(BluetoothAdmin::new(
-            String::from(ADMIN_SETTINGS_FILE_PATH),
-            tx.clone(),
-        ))));
         let bluetooth = Arc::new(Mutex::new(Box::new(Bluetooth::new(
             virt_index,
             hci_index,
@@ -197,7 +193,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             api_tx.clone(),
             sig_notifier.clone(),
             intf.clone(),
-            bluetooth_admin.clone(),
             bluetooth_gatt.clone(),
             bluetooth_media.clone(),
         ))));
@@ -215,7 +210,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))));
 
         bluetooth_media.lock().unwrap().set_adapter(bluetooth.clone());
-        bluetooth_admin.lock().unwrap().set_adapter(bluetooth.clone());
 
         bluetooth.lock().unwrap().init(init_flags, hci_index);
         bluetooth.lock().unwrap().enable();
@@ -227,7 +221,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             tx.clone(),
             bt_sock_mgr_runtime,
             intf.clone(),
-            bluetooth_admin.clone(),
+        ))));
+
+        // This construction doesn't need |intf| to be init-ed, but just depends on those who need.
+        let bluetooth_admin = Arc::new(Mutex::new(Box::new(BluetoothAdmin::new(
+            String::from(ADMIN_SETTINGS_FILE_PATH),
+            tx.clone(),
+            bluetooth.clone(),
+            bluetooth_media.clone(),
+            bt_sock_mgr.clone(),
         ))));
 
         // Run the stack main dispatch loop.
