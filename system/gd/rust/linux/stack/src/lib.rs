@@ -41,7 +41,7 @@ use crate::bluetooth_gatt::{
     dispatch_gatt_client_callbacks, dispatch_gatt_server_callbacks, dispatch_le_scanner_callbacks,
     dispatch_le_scanner_inband_callbacks, BluetoothGatt, GattActions,
 };
-use crate::bluetooth_media::{BluetoothMedia, MediaActions};
+use crate::bluetooth_media::{BluetoothMedia, IBluetoothMedia, MediaActions};
 use crate::dis::{DeviceInformation, ServiceCallbacks};
 use crate::socket_manager::{BluetoothSocketManager, SocketActions};
 use crate::suspend::Suspend;
@@ -304,6 +304,9 @@ impl Stack {
                     // Initialize objects that need the adapter to be fully
                     // enabled before running.
 
+                    // Init Media and pass it to Bluetooth.
+                    bluetooth_media.lock().unwrap().initialize();
+                    bluetooth.lock().unwrap().set_media(bluetooth_media.clone());
                     // Register device information service.
                     bluetooth_dis.lock().unwrap().initialize();
                     // Initialize Admin. This toggles the enabled profiles.
