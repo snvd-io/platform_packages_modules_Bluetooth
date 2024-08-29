@@ -170,9 +170,6 @@ pub enum Message {
     // UHid callbacks
     UHidHfpOutputCallback(RawAddress, u8, u8),
     UHidTelephonyUseCallback(RawAddress, bool),
-
-    // GATT Callbacks
-    GattClientDisconnected(RawAddress),
 }
 
 /// Returns a callable object that dispatches a BTIF callback to Message
@@ -601,13 +598,6 @@ impl Stack {
                         .lock()
                         .unwrap()
                         .dispatch_uhid_telephony_use_callback(addr, state);
-                }
-
-                Message::GattClientDisconnected(address) => {
-                    bluetooth
-                        .lock()
-                        .unwrap()
-                        .disconnect_if_no_media_or_hid_profiles_connected(address);
                 }
             }
         }
