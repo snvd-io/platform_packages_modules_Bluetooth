@@ -60,6 +60,7 @@ use crate::battery_provider_manager::{
     BatteryProviderManager, IBatteryProviderCallback, IBatteryProviderManager,
 };
 use crate::bluetooth::{Bluetooth, BluetoothDevice, IBluetooth};
+use crate::bluetooth_admin::BluetoothAdminPolicyHelper;
 use crate::callbacks::Callbacks;
 use crate::uuid;
 use crate::uuid::{Profile, UuidHelper};
@@ -807,6 +808,29 @@ impl BluetoothMedia {
             _ => {
                 warn!("Tried to query enablement status of {} in bluetooth_media", profile);
                 None
+            }
+        }
+    }
+
+    pub(crate) fn handle_admin_policy_changed(&mut self, admin_helper: BluetoothAdminPolicyHelper) {
+        for profile in UuidHelper::get_ordered_supported_profiles() {
+            match profile {
+                Profile::A2dpSource
+                | Profile::AvrcpTarget
+                | Profile::Hfp
+                | Profile::LeAudio
+                | Profile::VolumeControl
+                | Profile::CoordinatedSet => {}
+                _ => continue,
+            }
+            let profile = &profile;
+            match (
+                admin_helper.is_profile_allowed(profile),
+                self.is_profile_enabled(profile).unwrap(),
+            ) {
+                (true, false) => self.enable_profile(profile),
+                (false, true) => self.disable_profile(profile),
+                _ => {}
             }
         }
     }
