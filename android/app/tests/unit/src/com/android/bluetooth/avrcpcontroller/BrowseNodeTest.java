@@ -21,13 +21,18 @@ import static com.google.common.truth.Truth.assertThat;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.platform.test.annotations.DisableFlags;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.avrcpcontroller.BrowseTree.BrowseNode;
+import com.android.bluetooth.flags.Flags;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -40,6 +45,8 @@ public class BrowseNodeTest {
     private static final int TEST_PLAYER_ID = 1;
     private static final String TEST_UUID = "1111";
     private static final String TEST_NAME = "item";
+
+    @Rule public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private final byte[] mTestAddress = new byte[] {01, 01, 01, 01, 01, 01};
     private BluetoothAdapter mAdapter;
@@ -70,6 +77,31 @@ public class BrowseNodeTest {
         assertThat(browseNode.getBluetoothID()).isEqualTo(TEST_PLAYER_ID);
         assertThat(browseNode.getDevice()).isEqualTo(mTestDevice);
         assertThat(browseNode.isBrowsable()).isTrue();
+    }
+
+    @Test
+    @DisableFlags(Flags.FLAG_RANDOMIZE_DEVICE_LEVEL_MEDIA_IDS)
+    public void constructor_withBluetoothDevice() {
+        BrowseNode browseNode = mBrowseTree.new BrowseNode(mTestDevice);
+
+        assertThat(browseNode.getID()).isNotNull();
+        assertThat(browseNode.getDevice()).isEqualTo(mTestDevice);
+        assertThat(browseNode.isPlayer()).isFalse();
+        assertThat(browseNode.isBrowsable()).isTrue();
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_RANDOMIZE_DEVICE_LEVEL_MEDIA_IDS)
+    public void constructor_withBluetoothDevice_withRandomUuid() {
+        BrowseNode browseNode1 = mBrowseTree.new BrowseNode(mTestDevice);
+
+        assertThat(browseNode1.getID()).isNotNull();
+        assertThat(browseNode1.getDevice()).isEqualTo(mTestDevice);
+        assertThat(browseNode1.isPlayer()).isFalse();
+        assertThat(browseNode1.isBrowsable()).isTrue();
+
+        BrowseNode browseNode2 = mBrowseTree.new BrowseNode(mTestDevice);
+        assertThat(browseNode1.getID()).isNotEqualTo(browseNode2.getID());
     }
 
     @Test
