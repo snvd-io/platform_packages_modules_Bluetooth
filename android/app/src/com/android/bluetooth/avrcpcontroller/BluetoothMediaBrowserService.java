@@ -170,6 +170,8 @@ public class BluetoothMediaBrowserService extends MediaBrowserServiceCompat {
         super.onDestroy();
         unregisterReceiver(mReceiver);
         mReceiver = null;
+        mSession.release();
+        mSession = null;
         setInstance(null);
     }
 
