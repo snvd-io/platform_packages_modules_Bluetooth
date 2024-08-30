@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-package android.bluetooth;
+package android.bluetooth.hid;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHidDevice;
+import android.bluetooth.BluetoothHidHost;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothUuid;
+import android.bluetooth.PandoraDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,8 +39,8 @@ import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.util.Log;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.bluetooth.flags.Flags;
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
@@ -45,7 +56,7 @@ import org.junit.runner.RunWith;
 import pandora.HostProto.AdvertiseRequest;
 import pandora.HostProto.OwnAddressType;
 
-/** Test cases for {@link Hid Host}. */
+/** Test cases for {@link BluetoothHidHost}. */
 @RunWith(AndroidJUnit4.class)
 public class HidHostDualModeTest {
     private static final String TAG = "HidHostDualModeTest";
@@ -60,9 +71,10 @@ public class HidHostDualModeTest {
     private BluetoothHidHost mHidService;
     private BluetoothHeadset mHfpService;
     private BluetoothA2dp mA2dpService;
-    private final Context mContext = ApplicationProvider.getApplicationContext();
-    private final BluetoothManager mManager = mContext.getSystemService(BluetoothManager.class);
-    private final BluetoothAdapter mAdapter = mManager.getAdapter();
+    private final Context mContext =
+            InstrumentationRegistry.getInstrumentation().getTargetContext();
+    private final BluetoothAdapter mAdapter =
+            mContext.getSystemService(BluetoothManager.class).getAdapter();
     private byte mReportId;
     private static final int KEYBD_RPT_ID = 1;
     private static final int KEYBD_RPT_SIZE = 9;
@@ -78,8 +90,9 @@ public class HidHostDualModeTest {
     @Rule(order = 2)
     public final PandoraDevice mBumble = new PandoraDevice();
 
-    private BroadcastReceiver mHidStateReceiver =
+    private final BroadcastReceiver mHidStateReceiver =
             new BroadcastReceiver() {
+                @SuppressLint("MissingPermission")
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     switch (intent.getAction()) {
@@ -198,6 +211,7 @@ public class HidHostDualModeTest {
                 public void onServiceDisconnected(int profile) {}
             };
 
+    @SuppressLint("MissingPermission")
     @Before
     public void setUp() throws Exception {
         final IntentFilter filter = new IntentFilter();
@@ -261,6 +275,7 @@ public class HidHostDualModeTest {
                 .isEqualTo(BluetoothDevice.TRANSPORT_LE);
     }
 
+    @SuppressLint("MissingPermission")
     @After
     public void tearDown() throws Exception {
         if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED) {
@@ -280,6 +295,7 @@ public class HidHostDualModeTest {
      *   <li>3. Android switch the transport to BR/EDR and Verifies the transport
      * </ol>
      */
+    @SuppressLint("MissingPermission")
     @Test
     @RequiresFlagsEnabled({
         Flags.FLAG_ALLOW_SWITCHING_HID_AND_HOGP,
@@ -307,6 +323,7 @@ public class HidHostDualModeTest {
      *   <li>2. Android get report and verifies the report
      * </ol>
      */
+    @SuppressLint("MissingPermission")
     @Test
     @RequiresFlagsEnabled({
         Flags.FLAG_ALLOW_SWITCHING_HID_AND_HOGP,
@@ -337,6 +354,7 @@ public class HidHostDualModeTest {
      *   <li>2. Android Gets the Protocol mode and verifies the mode
      * </ol>
      */
+    @SuppressLint("MissingPermission")
     @Test
     @RequiresFlagsEnabled({
         Flags.FLAG_ALLOW_SWITCHING_HID_AND_HOGP,
@@ -357,6 +375,7 @@ public class HidHostDualModeTest {
      *   <li>2. Android Sets the Protocol mode and verifies the mode
      * </ol>
      */
+    @SuppressLint("MissingPermission")
     @Test
     @RequiresFlagsEnabled({
         Flags.FLAG_ALLOW_SWITCHING_HID_AND_HOGP,
