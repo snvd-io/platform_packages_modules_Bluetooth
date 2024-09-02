@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-#include "devices.h"
+#include "bta/vc/devices.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <list>
 #include <map>
 
-#include "bta_gatt_api_mock.h"
-#include "bta_gatt_queue_mock.h"
-#include "btm_api_mock.h"
+#include "bta/test/common/bta_gatt_api_mock.h"
+#include "bta/test/common/bta_gatt_queue_mock.h"
+#include "bta/test/common/btm_api_mock.h"
 #include "gatt/database_builder.h"
 #include "stack/include/bt_uuid16.h"
 #include "types/bluetooth/uuid.h"

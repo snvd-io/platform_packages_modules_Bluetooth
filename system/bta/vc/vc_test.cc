@@ -19,19 +19,19 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "bind_helpers.h"
-#include "bta_gatt_api_mock.h"
-#include "bta_gatt_queue_mock.h"
-#include "bta_vc_api.h"
-#include "btm_api_mock.h"
+#include "bta/include/bta_vc_api.h"
+#include "bta/test/common/bta_gatt_api_mock.h"
+#include "bta/test/common/bta_gatt_queue_mock.h"
+#include "bta/test/common/btm_api_mock.h"
+#include "bta/test/common/mock_csis_client.h"
+#include "bta/vc/types.h"
 #include "gatt/database_builder.h"
 #include "hardware/bt_gatt_types.h"
-#include "mock_csis_client.h"
+#include "include/bind_helpers.h"
 #include "osi/test/alarm_mock.h"
 #include "stack/include/bt_uuid16.h"
 #include "stack/include/btm_status.h"
 #include "test/common/mock_functions.h"
-#include "types.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -393,7 +393,7 @@ protected:
   }
 
   void TestSubscribeNotifications(const RawAddress& address, uint16_t conn_id,
-                                  std::map<uint16_t, uint16_t>& handle_pairs) {
+                                  const std::map<uint16_t, uint16_t>& handle_pairs) {
     SetSampleDatabase(conn_id);
     TestAppRegister();
     TestConnect(address);
@@ -442,7 +442,7 @@ protected:
             .mtu = 240,
     };
 
-    gatt_callback(BTA_GATTC_OPEN_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_OPEN_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 
   void GetDisconnectedEvent(const RawAddress& address, uint16_t conn_id) {
@@ -454,7 +454,7 @@ protected:
             .reason = GATT_CONN_TERMINATE_PEER_USER,
     };
 
-    gatt_callback(BTA_GATTC_CLOSE_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_CLOSE_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 
   void GetSearchCompleteEvent(uint16_t conn_id) {
@@ -463,7 +463,7 @@ protected:
             .status = GATT_SUCCESS,
     };
 
-    gatt_callback(BTA_GATTC_SEARCH_CMPL_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_SEARCH_CMPL_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 
   void GetEncryptionCompleteEvt(const RawAddress& bda) {
@@ -1021,7 +1021,7 @@ protected:
     VolumeControlTest::TearDown();
   }
 
-  void GetNotificationEvent(uint16_t handle, std::vector<uint8_t>& value) {
+  void GetNotificationEvent(uint16_t handle, const std::vector<uint8_t>& value) {
     tBTA_GATTC_NOTIFY event_data = {
             .conn_id = conn_id,
             .bda = test_address,
@@ -1031,7 +1031,7 @@ protected:
     };
 
     std::copy(value.begin(), value.end(), event_data.value);
-    gatt_callback(BTA_GATTC_NOTIF_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_NOTIF_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 };
 
@@ -1182,7 +1182,7 @@ protected:
             });
   }
 
-  void GetNotificationEvent(uint16_t handle, std::vector<uint8_t>& value) {
+  void GetNotificationEvent(uint16_t handle, const std::vector<uint8_t>& value) {
     tBTA_GATTC_NOTIFY event_data = {
             .conn_id = conn_id,
             .bda = test_address,
@@ -1192,7 +1192,7 @@ protected:
     };
 
     std::copy(value.begin(), value.end(), event_data.value);
-    gatt_callback(BTA_GATTC_NOTIF_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_NOTIF_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 
   void TearDown(void) override {
@@ -1487,7 +1487,7 @@ protected:
   }
 
   void GetNotificationEvent(uint16_t conn_id, const RawAddress& test_address, uint16_t handle,
-                            std::vector<uint8_t>& value) {
+                            const std::vector<uint8_t>& value) {
     tBTA_GATTC_NOTIFY event_data = {
             .conn_id = conn_id,
             .bda = test_address,
@@ -1497,7 +1497,7 @@ protected:
     };
 
     std::copy(value.begin(), value.end(), event_data.value);
-    gatt_callback(BTA_GATTC_NOTIF_EVT, (tBTA_GATTC*)&event_data);
+    gatt_callback(BTA_GATTC_NOTIF_EVT, reinterpret_cast<tBTA_GATTC*>(&event_data));
   }
 };
 
