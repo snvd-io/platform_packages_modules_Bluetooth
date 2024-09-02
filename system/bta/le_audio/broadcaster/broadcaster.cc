@@ -1037,6 +1037,10 @@ private:
             instance->UpdateAudioActiveStateInPublicAnnouncement();
           }
           break;
+        case BroadcastStateMachine::State::ENABLING:
+          break;
+        case BroadcastStateMachine::State::DISABLING:
+          break;
         case BroadcastStateMachine::State::STOPPING:
           break;
         case BroadcastStateMachine::State::STREAMING:

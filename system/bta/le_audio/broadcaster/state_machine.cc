@@ -248,6 +248,10 @@ private:
           [](const void*) { /* Do nothing */ },
           /* in CONFIGURED state */
           [this](const void*) { CreateBig(); },
+          /* in ENABLING state */
+          [](const void*) { /* Do nothing */ },
+          /* in DISABLING state */
+          [](const void*) { /* Do nothing */ },
           /* in STOPPING state */
           [](const void*) { /* Do nothing */ },
           /* in STREAMING state */
@@ -264,6 +268,10 @@ private:
             callbacks_->OnStateMachineEvent(GetBroadcastId(), GetState());
             DisableAnnouncement();
           },
+          /* in ENABLING state */
+          [](const void*) { /* Do nothing */ },
+          /* in DISABLING state */
+          [](const void*) { /* Do nothing */ },
           /* in STOPPING state */
           [](const void*) { /* Do nothing */ },
           /* in STREAMING state */
@@ -290,6 +298,10 @@ private:
               TerminateBig();
             }
           },
+          /* in ENABLING state */
+          [](const void*) { /* Do nothing */ },
+          /* in DISABLING state */
+          [](const void*) { /* Do nothing */ },
           /* in STOPPING state */
           [](const void*) { /* Do nothing */ },
           /* in STREAMING state */
@@ -307,6 +319,10 @@ private:
           [](const void*) { /* Do nothing */ },
           /* in CONFIGURED state */
           [this](const void*) { CreateBig(); },
+          /* in ENABLING state */
+          [](const void*) { /* Do nothing */ },
+          /* in DISABLING state */
+          [](const void*) { /* Do nothing */ },
           /* in STOPPING state */
           [](const void*) { /* Do nothing */ },
           /* in STREAMING state */
@@ -617,7 +633,7 @@ std::ostream& operator<<(std::ostream& os, const BroadcastStateMachine::Message&
 
 std::ostream& operator<<(std::ostream& os, const BroadcastStateMachine::State& state) {
   static const char* char_value_[BroadcastStateMachine::STATE_COUNT] = {
-          "STOPPED", "CONFIGURING", "CONFIGURED", "STOPPING", "STREAMING"};
+          "STOPPED", "CONFIGURING", "CONFIGURED", "ENABLING", "DISABLING", "STOPPING", "STREAMING"};
   os << char_value_[static_cast<uint8_t>(state)];
   return os;
 }

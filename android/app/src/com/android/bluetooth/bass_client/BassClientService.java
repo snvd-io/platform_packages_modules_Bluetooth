@@ -115,8 +115,10 @@ public class BassClientService extends ProfileService {
     private static final int BROADCAST_STATE_STOPPED = 0;
     private static final int BROADCAST_STATE_CONFIGURING = 1;
     private static final int BROADCAST_STATE_PAUSED = 2;
-    private static final int BROADCAST_STATE_STOPPING = 3;
-    private static final int BROADCAST_STATE_STREAMING = 4;
+    private static final int BROADCAST_STATE_ENABLING = 3;
+    private static final int BROADCAST_STATE_DISABLING = 4;
+    private static final int BROADCAST_STATE_STOPPING = 5;
+    private static final int BROADCAST_STATE_STREAMING = 6;
 
     private static final int MESSAGE_SYNC_TIMEOUT = 1;
 
@@ -3407,6 +3409,8 @@ public class BassClientService extends ProfileService {
                 break;
             case BROADCAST_STATE_CONFIGURING:
             case BROADCAST_STATE_PAUSED:
+            case BROADCAST_STATE_ENABLING:
+            case BROADCAST_STATE_DISABLING:
             case BROADCAST_STATE_STOPPING:
             case BROADCAST_STATE_STREAMING:
             default:
