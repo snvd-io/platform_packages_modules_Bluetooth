@@ -216,7 +216,22 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
   p_tbl->state = AVDT_AD_ST_CFG;
 }
 
-static void avdt_on_l2cap_error(uint16_t lcid, uint16_t /* result */) { avdt_l2c_disconnect(lcid); }
+static void avdt_on_l2cap_error(uint16_t lcid, uint16_t result) {
+  AvdtpTransportChannel* p_tbl;
+
+  log::warn("lcid: 0x{:04x}, result: {}", lcid, to_l2cap_result_code(result));
+  if (!L2CA_DisconnectReq(lcid)) {
+    log::warn("Unable to disconnect L2CAP lcid: 0x{:04x}", lcid);
+  }
+
+  /* look up info for this channel */
+  p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
+  }
+  avdt_ad_tc_close_ind(p_tbl);
+}
 
 /*******************************************************************************
  *
@@ -347,21 +362,6 @@ void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
   AvdtpTransportChannel* p_tbl;
 
   log::verbose("avdt_l2c_disconnect_ind_cback lcid: {}, ack_needed: {}", lcid, ack_needed);
-  /* look up info for this channel */
-  p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    avdt_ad_tc_close_ind(p_tbl);
-  }
-}
-
-void avdt_l2c_disconnect(uint16_t lcid) {
-  if (!L2CA_DisconnectReq(lcid)) {
-    log::warn("Unable to disconnect L2CAP cid:{}", lcid);
-  }
-
-  AvdtpTransportChannel* p_tbl;
-
-  log::verbose("avdt_l2c_disconnect_cfm_cback lcid: {}", lcid);
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
   if (p_tbl != NULL) {
