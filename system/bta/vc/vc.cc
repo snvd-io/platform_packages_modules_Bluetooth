@@ -1096,11 +1096,8 @@ private:
       callbacks_->OnVolumeStateChanged(device->address, device->volume, device->mute, device->flags,
                                        true);
 
-      for (auto const& offset : device->audio_offsets.volume_offsets) {
-        callbacks_->OnExtAudioOutVolumeOffsetChanged(device->address, offset.id, offset.offset);
-      }
-
-      device->EnqueueRemainingRequests(gatt_if_, chrc_read_callback_static, OnGattWriteCccStatic);
+      device->EnqueueRemainingRequests(gatt_if_, chrc_read_callback_static,
+                                       chrc_multi_read_callback_static, OnGattWriteCccStatic);
     }
   }
 
@@ -1211,6 +1208,49 @@ private:
                                         uint16_t len, uint8_t* value, void* data) {
     if (instance) {
       instance->OnCharacteristicValueChanged(conn_id, status, handle, len, value, data, false);
+    }
+  }
+
+  static void chrc_multi_read_callback_static(uint16_t conn_id, tGATT_STATUS status,
+                                              tBTA_GATTC_MULTI& handles, uint16_t total_len,
+                                              uint8_t* value, void* data) {
+    if (!instance) {
+      return;
+    }
+
+    if (status != GATT_SUCCESS) {
+      bluetooth::log::error("conn_id={:#} multi read failed {:#x}", conn_id, status);
+      instance->OnCharacteristicValueChanged(conn_id, status, 0, 0, nullptr, nullptr, false);
+      return;
+    }
+
+    size_t position = 0;
+    int index = 0;
+    while (position != total_len) {
+      uint8_t* ptr = value + position;
+      uint16_t len;
+      STREAM_TO_UINT16(len, ptr);
+      uint16_t hdl = handles.handles[index];
+
+      if (position + len >= total_len) {
+        bluetooth::log::warn(
+                "Multi read was too long, value truncated conn_id: {:#x} handle: {:#x}, possition: "
+                "{:#x}, len: {:#x}, total_len: {:#x}, data: {}",
+                conn_id, hdl, position, len, total_len, base::HexEncode(value, total_len));
+        break;
+      }
+
+      instance->OnCharacteristicValueChanged(conn_id, status, hdl, len, ptr,
+                                             ((index == (handles.num_attr - 1)) ? data : nullptr),
+                                             false);
+
+      position += len + 2; /* skip the length of data */
+      index++;
+    }
+
+    if (handles.num_attr - 1 != index) {
+      bluetooth::log::warn("Attempted to read {} handles, but received just {} values",
+                           +handles.num_attr, index + 1);
     }
   }
 };
