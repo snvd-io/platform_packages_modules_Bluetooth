@@ -67,7 +67,7 @@ const tL2CAP_APPL_INFO avdt_l2c_appl = {avdt_l2c_connect_ind_cback,
 
 /*******************************************************************************
  *
- * Function         avdt_sec_check_complete_term
+ * Function         avdt_l2c_sec_check_complete_term
  *
  * Description      The function called when Security Manager finishes
  *                  verification of the service side connection
@@ -75,21 +75,21 @@ const tL2CAP_APPL_INFO avdt_l2c_appl = {avdt_l2c_connect_ind_cback,
  * Returns          void
  *
  ******************************************************************************/
-static void avdt_sec_check_complete_term(const RawAddress* bd_addr, tBT_TRANSPORT /* transport */,
-                                         void* /* p_ref_data */) {
+static void avdt_l2c_sec_check_complete_term(const RawAddress& bd_addr) {
   AvdtpCcb* p_ccb = NULL;
   AvdtpTransportChannel* p_tbl;
 
-  p_ccb = avdt_ccb_by_bd(*bd_addr);
-
+  p_ccb = avdt_ccb_by_bd(bd_addr);
   p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_SIG, p_ccb, AVDT_AD_ST_SEC_ACP);
   if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
     return;
   }
 
   /* store idx in LCID table, store LCID in routing table */
   avdtp_cb.ad.lcid_tbl[p_tbl->lcid] = avdt_ad_tc_tbl_to_idx(p_tbl);
   avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = p_tbl->lcid;
+  log::verbose("lcid: 0x{:04x}, bd_addr: {}", p_tbl->lcid, bd_addr);
 
   /* transition to configuration state */
   p_tbl->state = AVDT_AD_ST_CFG;
@@ -97,7 +97,7 @@ static void avdt_sec_check_complete_term(const RawAddress* bd_addr, tBT_TRANSPOR
 
 /*******************************************************************************
  *
- * Function         avdt_sec_check_complete_orig
+ * Function         avdt_l2c_sec_check_complete_orig
  *
  * Description      The function called when Security Manager finishes
  *                  verification of the service side connection
@@ -105,27 +105,20 @@ static void avdt_sec_check_complete_term(const RawAddress* bd_addr, tBT_TRANSPOR
  * Returns          void
  *
  ******************************************************************************/
-static void avdt_sec_check_complete_orig(const RawAddress* bd_addr, tBT_TRANSPORT /* transport */,
-                                         void* /* p_ref_data */, tBTM_STATUS res) {
+static void avdt_l2c_sec_check_complete_orig(const RawAddress& bd_addr) {
   AvdtpCcb* p_ccb = NULL;
   AvdtpTransportChannel* p_tbl;
 
-  log::verbose("avdt_sec_check_complete_orig res: {}", res);
-  if (bd_addr) {
-    p_ccb = avdt_ccb_by_bd(*bd_addr);
-  }
+  p_ccb = avdt_ccb_by_bd(bd_addr);
   p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_SIG, p_ccb, AVDT_AD_ST_SEC_INT);
   if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
     return;
   }
 
-  if (res == tBTM_STATUS::BTM_SUCCESS) {
-    /* set channel state */
-    p_tbl->state = AVDT_AD_ST_CFG;
-  } else {
-    avdt_l2c_disconnect(p_tbl->lcid);
-    avdt_ad_tc_close_ind(p_tbl);
-  }
+  log::verbose("lcid: 0x{:04x}, bd_addr: {}", p_tbl->lcid, bd_addr);
+  /* set channel state */
+  p_tbl->state = AVDT_AD_ST_CFG;
 }
 /*******************************************************************************
  *
@@ -173,7 +166,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
                           HCI_PKT_TYPES_MASK_NO_3_DH3 | HCI_PKT_TYPES_MASK_NO_3_DH5));
       }
       /* Assume security check is complete */
-      avdt_sec_check_complete_term(&p_ccb->peer_addr, BT_TRANSPORT_BR_EDR, nullptr);
+      avdt_l2c_sec_check_complete_term(p_ccb->peer_addr);
       return;
     }
   } else {
@@ -270,8 +263,7 @@ void avdt_l2c_connect_cfm_cback(uint16_t lcid, tL2CAP_CONN result) {
             }
 
             /* Assume security check is complete */
-            avdt_sec_check_complete_orig(&p_ccb->peer_addr, BT_TRANSPORT_BR_EDR, nullptr,
-                                         tBTM_STATUS::BTM_SUCCESS);
+            avdt_l2c_sec_check_complete_orig(p_ccb->peer_addr);
           }
         }
       }
