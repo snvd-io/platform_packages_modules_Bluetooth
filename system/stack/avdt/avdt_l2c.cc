@@ -18,7 +18,7 @@
 
 /******************************************************************************
  *
- *  This AVDTP adaption layer module interfaces to L2CAP
+ *  This AVDTP adaptation layer module interfaces to L2CAP
  *
  ******************************************************************************/
 
@@ -136,6 +136,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
   AvdtpTransportChannel* p_tbl = NULL;
   tL2CAP_CONN result;
 
+  log::verbose("lcid: 0x{:04x}, bd_addr: {}", lcid, bd_addr);
   /* do we already have a control channel for this peer? */
   p_ccb = avdt_ccb_by_bd(bd_addr);
   if (p_ccb == NULL) {
@@ -152,6 +153,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
       result = tL2CAP_CONN::L2CAP_CONN_NO_RESOURCES;
     } else {
       /* allocate and set up entry; first channel is always signaling */
+      log::verbose("lcid: 0x{:04x} AVDT_CHAN_SIG", lcid);
       p_tbl = avdt_ad_tc_tbl_alloc(p_ccb);
       p_tbl->my_mtu = kAvdtpMtu;
       p_tbl->tcid = AVDT_CHAN_SIG;
@@ -181,6 +183,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
        */
       p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_MEDIA, p_ccb, AVDT_AD_ST_ACP);
       if (p_tbl != NULL) {
+        log::verbose("lcid: 0x{:04x} AVDT_CHAN_MEDIA", lcid);
         /* yes; proceed with connection */
         result = tL2CAP_CONN::L2CAP_CONN_OK;
       } else {
@@ -189,6 +192,7 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
          */
         p_tbl = avdt_ad_tc_tbl_by_st(AVDT_CHAN_REPORT, p_ccb, AVDT_AD_ST_ACP);
         if (p_tbl != NULL) {
+          log::verbose("lcid: 0x{:04x} AVDT_CHAN_REPORT", lcid);
           /* yes; proceed with connection */
           result = tL2CAP_CONN::L2CAP_CONN_OK;
         } else {
@@ -201,8 +205,9 @@ void avdt_l2c_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid, uint16
 
   /* If we reject the connection, send DisconnectReq */
   if (result != tL2CAP_CONN::L2CAP_CONN_OK) {
+    log::warn("lcid: 0x{:04x}, result: {}", lcid, l2cap_result_code_text(result));
     if (!L2CA_DisconnectReq(lcid)) {
-      log::warn("Unable to disconnect L2CAP cid:{}", lcid);
+      log::warn("Unable to disconnect L2CAP lcid: 0x{:04x}", lcid);
     }
     return;
   }
@@ -247,48 +252,47 @@ void avdt_l2c_connect_cfm_cback(uint16_t lcid, tL2CAP_CONN result) {
   AvdtpTransportChannel* p_tbl;
   AvdtpCcb* p_ccb;
 
-  log::verbose("avdt_l2c_connect_cfm_cback lcid: {}, result: {}", lcid,
-               l2cap_result_code_text(result));
-  /* look up info for this channel */
+  log::verbose("lcid: 0x{:04x}, result: {}", lcid, l2cap_result_code_text(result));
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    /* if in correct state */
-    if (p_tbl->state == AVDT_AD_ST_CONN) {
-      /* if result successful */
-      if (result == tL2CAP_CONN::L2CAP_CONN_OK) {
-        if (p_tbl->tcid != AVDT_CHAN_SIG) {
-          /* set channel state */
-          p_tbl->state = AVDT_AD_ST_CFG;
-        } else {
-          p_ccb = avdt_ccb_by_idx(p_tbl->ccb_idx);
-          if (p_ccb == NULL) {
-            result = tL2CAP_CONN::L2CAP_CONN_NO_RESOURCES;
-          } else {
-            /* set channel state */
-            p_tbl->state = AVDT_AD_ST_SEC_INT;
-            p_tbl->lcid = lcid;
-            p_tbl->cfg_flags = AVDT_L2C_CFG_CONN_INT;
-
-            if (interop_match_addr(INTEROP_2MBPS_LINK_ONLY, (const RawAddress*)&p_ccb->peer_addr)) {
-              // Disable 3DH packets for AVDT ACL to improve sensitivity on HS
-              btm_set_packet_types_from_address(
-                      p_ccb->peer_addr,
-                      (acl_get_supported_packet_types() | HCI_PKT_TYPES_MASK_NO_3_DH1 |
-                       HCI_PKT_TYPES_MASK_NO_3_DH3 | HCI_PKT_TYPES_MASK_NO_3_DH5));
-            }
-
-            /* Assume security check is complete */
-            avdt_l2c_sec_check_complete_orig(p_ccb->peer_addr);
-          }
-        }
-      }
-
-      /* failure; notify adaption that channel closed */
-      if (result != tL2CAP_CONN::L2CAP_CONN_OK) {
-        log::error("invoked with non OK status");
-      }
-    }
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
   }
+
+  if (p_tbl->state != AVDT_AD_ST_CONN) {
+    log::warn("Incorrect state: {}", p_tbl->state);
+    return;
+  }
+
+  if (result != tL2CAP_CONN::L2CAP_CONN_OK) {
+    log::warn("lcid: 0x{:04x}, result: {}", lcid, l2cap_result_code_text(result));
+    return;
+  }
+
+  if (p_tbl->tcid != AVDT_CHAN_SIG) {
+    p_tbl->state = AVDT_AD_ST_CFG;
+    return;
+  }
+
+  p_ccb = avdt_ccb_by_idx(p_tbl->ccb_idx);
+  if (p_ccb == NULL) {
+    log::warn("p_ccb is NULL");
+    return;
+  }
+
+  p_tbl->state = AVDT_AD_ST_SEC_INT;
+  p_tbl->lcid = lcid;
+  p_tbl->cfg_flags = AVDT_L2C_CFG_CONN_INT;
+
+  if (interop_match_addr(INTEROP_2MBPS_LINK_ONLY, (const RawAddress*)&p_ccb->peer_addr)) {
+    // Disable 3DH packets for AVDT ACL to improve sensitivity on HS
+    btm_set_packet_types_from_address(
+            p_ccb->peer_addr, (acl_get_supported_packet_types() | HCI_PKT_TYPES_MASK_NO_3_DH1 |
+                               HCI_PKT_TYPES_MASK_NO_3_DH3 | HCI_PKT_TYPES_MASK_NO_3_DH5));
+  }
+
+  /* Assume security check is complete */
+  avdt_l2c_sec_check_complete_orig(p_ccb->peer_addr);
 }
 
 /*******************************************************************************
@@ -301,22 +305,27 @@ void avdt_l2c_connect_cfm_cback(uint16_t lcid, tL2CAP_CONN result) {
  * Returns          void
  *
  ******************************************************************************/
-void avdt_l2c_config_cfm_cback(uint16_t lcid, uint16_t /* initiator */, tL2CAP_CFG_INFO* p_cfg) {
-  avdt_l2c_config_ind_cback(lcid, p_cfg);
-
+void avdt_l2c_config_cfm_cback(uint16_t lcid, uint16_t initiator, tL2CAP_CFG_INFO* p_cfg) {
   AvdtpTransportChannel* p_tbl;
-
-  log::verbose("lcid: {}", lcid);
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    p_tbl->lcid = lcid;
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
+  }
 
-    /* if in correct state */
-    if (p_tbl->state == AVDT_AD_ST_CFG) {
-      avdt_ad_tc_open_ind(p_tbl);
-    }
+  p_tbl->lcid = lcid;
+  /* store the mtu in tbl */
+  if (p_cfg->mtu_present) {
+    p_tbl->peer_mtu = p_cfg->mtu;
+  } else {
+    p_tbl->peer_mtu = L2CAP_DEFAULT_MTU;
+  }
+  log::verbose("lcid: 0x{:04x}, initiator: {}, peer_mtu: {}", lcid, initiator, p_tbl->peer_mtu);
+  /* if in correct state */
+  if (p_tbl->state == AVDT_AD_ST_CFG) {
+    avdt_ad_tc_open_ind(p_tbl);
   }
 }
 
@@ -333,19 +342,20 @@ void avdt_l2c_config_cfm_cback(uint16_t lcid, uint16_t /* initiator */, tL2CAP_C
 void avdt_l2c_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
   AvdtpTransportChannel* p_tbl;
 
-  log::verbose("lcid: {}", lcid);
-
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    /* store the mtu in tbl */
-    if (p_cfg->mtu_present) {
-      p_tbl->peer_mtu = p_cfg->mtu;
-    } else {
-      p_tbl->peer_mtu = L2CAP_DEFAULT_MTU;
-    }
-    log::verbose("peer_mtu: {}, lcid: {}", p_tbl->peer_mtu, lcid);
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
   }
+
+  /* store the mtu in tbl */
+  if (p_cfg->mtu_present) {
+    p_tbl->peer_mtu = p_cfg->mtu;
+  } else {
+    p_tbl->peer_mtu = L2CAP_DEFAULT_MTU;
+  }
+  log::verbose("lcid: 0x{:04x}, peer_mtu: {}", lcid, p_tbl->peer_mtu);
 }
 
 /*******************************************************************************
@@ -361,12 +371,14 @@ void avdt_l2c_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
 void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
   AvdtpTransportChannel* p_tbl;
 
-  log::verbose("avdt_l2c_disconnect_ind_cback lcid: {}, ack_needed: {}", lcid, ack_needed);
+  log::verbose("lcid: 0x{:04x}, ack_needed: {}", lcid, ack_needed);
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    avdt_ad_tc_close_ind(p_tbl);
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
   }
+  avdt_ad_tc_close_ind(p_tbl);
 }
 
 /*******************************************************************************
@@ -382,11 +394,14 @@ void avdt_l2c_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
 void avdt_l2c_congestion_ind_cback(uint16_t lcid, bool is_congested) {
   AvdtpTransportChannel* p_tbl;
 
+  log::verbose("lcid: 0x{:04x}, is_congested: {}", lcid, is_congested);
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    avdt_ad_tc_cong_ind(p_tbl, is_congested);
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
+    return;
   }
+  avdt_ad_tc_cong_ind(p_tbl, is_congested);
 }
 
 /*******************************************************************************
@@ -404,9 +419,10 @@ void avdt_l2c_data_ind_cback(uint16_t lcid, BT_HDR* p_buf) {
 
   /* look up info for this channel */
   p_tbl = avdt_ad_tc_tbl_by_lcid(lcid);
-  if (p_tbl != NULL) {
-    avdt_ad_tc_data_ind(p_tbl, p_buf);
-  } else { /* prevent buffer leak */
+  if (p_tbl == NULL) {
+    log::warn("Adaptation layer transport channel table is NULL");
     osi_free(p_buf);
+    return;
   }
+  avdt_ad_tc_data_ind(p_tbl, p_buf);
 }
