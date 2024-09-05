@@ -612,6 +612,7 @@ pub struct Bluetooth {
     freshness_check: Option<JoinHandle<()>>,
     sdp: Option<Sdp>,
     state: BtState,
+    disabling: bool,
     tx: Sender<Message>,
     api_tx: Sender<APIMessage>,
     // Internal API members
@@ -669,6 +670,7 @@ impl Bluetooth {
             freshness_check: None,
             sdp: None,
             state: BtState::Off,
+            disabling: false,
             tx,
             api_tx,
             // Internal API members
@@ -702,6 +704,10 @@ impl Bluetooth {
     }
 
     fn update_connectable_mode(&mut self, is_sock_listening: bool) {
+        // Don't bother if we are disabling. See b/361510982
+        if self.disabling {
+            return;
+        }
         // Set connectable if
         // - there is bredr socket listening, or
         // - there is a classic device bonded and not connected
@@ -2086,10 +2092,18 @@ impl IBluetooth for Bluetooth {
     }
 
     fn enable(&mut self) -> bool {
+        self.disabling = false;
         self.intf.lock().unwrap().enable() == 0
     }
 
     fn disable(&mut self) -> bool {
+        self.disabling = true;
+        if !self.set_discoverable(BtDiscMode::NonDiscoverable, 0) {
+            warn!("set_discoverable failed on disabling");
+        }
+        if !self.set_connectable_internal(false) {
+            warn!("set_connectable_internal failed on disabling");
+        }
         self.intf.lock().unwrap().disable() == 0
     }
 
