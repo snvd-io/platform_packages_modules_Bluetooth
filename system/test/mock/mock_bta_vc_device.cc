@@ -74,6 +74,7 @@ void VolumeControlDevice::ControlPointOperation(uint8_t /* opcode */,
 void VolumeControlDevice::Disconnect(tGATT_IF /* gatt_if */) { inc_func_call_count(__func__); }
 void VolumeControlDevice::EnqueueRemainingRequests(tGATT_IF /* gatt_if */,
                                                    GATT_READ_OP_CB /* chrc_read_cb */,
+                                                   GATT_READ_MULTI_OP_CB /* chrc_multi_read_cb */,
                                                    GATT_WRITE_OP_CB /* cccd_write_cb */) {
   inc_func_call_count(__func__);
 }

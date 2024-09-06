@@ -956,9 +956,6 @@ public class VolumeControlService extends ProfileService {
          * Offset ids a countinous from 1 to number_of_ext_outputs*/
         for (int i = 1; i <= numberOfExternalOutputs; i++) {
             offsets.add(i);
-            mVolumeControlNativeInterface.getExtAudioOutVolumeOffset(device, i);
-            mVolumeControlNativeInterface.getExtAudioOutLocation(device, i);
-            mVolumeControlNativeInterface.getExtAudioOutDescription(device, i);
         }
     }
 
