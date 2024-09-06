@@ -16,6 +16,7 @@
  */
 
 #include <base/functional/bind.h>
+#include <com_android_bluetooth_flags.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -218,6 +219,118 @@ private:
                 return;
               }
               cb(conn_id, GATT_SUCCESS, handle, value.size(), value.data(), cb_data);
+            }));
+
+    ON_CALL(gatt_queue, ReadMultiCharacteristic(conn_id, _, _, _))
+            .WillByDefault(Invoke([&](uint16_t conn_id, tBTA_GATTC_MULTI& handles,
+                                      GATT_READ_MULTI_OP_CB cb, void* cb_data) -> void {
+              std::vector<uint8_t> value;
+
+              auto add_element = [&](uint8_t data[], uint8_t len) -> void {
+                // LE order, 2 octects
+                value.push_back(len);
+                value.push_back(0x00);
+
+                uint8_t* p = &data[0];
+                for (size_t i = 0; i < len; i++) {
+                  value.push_back(*p++);
+                }
+              };
+
+              for (size_t i = 0; i < handles.num_attr; i++) {
+                switch (handles.handles[i]) {
+                  case 0x0003: {
+                    /* device name */
+                    uint8_t name[] = "UnknownName";
+                    add_element(name, sizeof(name));
+                    break;
+                  }
+                  case 0x0021: {
+                    /* state */
+                    uint8_t state[3] = {0x00, 0x00, 0x00};
+                    add_element(state, sizeof(state));
+                    break;
+                  }
+                  case 0x0026: {
+                    /* volume flags */
+                    uint8_t flags[] = {0x01};
+                    add_element(flags, sizeof(flags));
+                    break;
+                  }
+                  case 0x0032:  // 1st AICS instance
+                  case 0x0052:  // 2nd AICS instance
+                  {
+                    /* audio input state */
+                    uint8_t state[4] = {0x01, 0x01, 0x01, 0x00};
+                    add_element(state, sizeof(state));
+                    break;
+                  }
+                  case 0x0035:  // 1st AICS instance
+                  case 0x0055:  // 2nd AICS instance
+                  {
+                    /* audio input gain settings */
+                    uint8_t gain_settings[3] = {0x01, 0x01, 0x01};
+                    add_element(gain_settings, sizeof(gain_settings));
+                    break;
+                  }
+                  case 0x0037:  // 1st AICS instance
+                  case 0x0057:  // 2nd AICS instance
+                  {
+                    /* audio input type */
+                    uint8_t type[] = {0x01};
+                    add_element(type, sizeof(type));
+                    break;
+                  }
+                  case 0x0039:  // 1st AICS instance
+                  case 0x0059:  // 2nd AICS instance
+                  {
+                    /* audio input status */
+                    uint8_t status[] = {0x00};
+                    add_element(status, sizeof(status));
+                    break;
+                  }
+                  case 0x003e:  // 1st AICS instance
+                  case 0x005e:  // 2nd AICS instance
+                  {
+                    /* audio input description */
+                    uint8_t dest[] = "input";
+                    add_element(dest, sizeof(dest));
+                    break;
+                  }
+                  case 0x0072:  // 1st VOCS instance
+                  case 0x0082:  // 2nd VOCS instance
+                  {
+                    /* offset state */
+                    uint8_t state[3] = {0x00, 0x20, 0x00};
+                    add_element(state, sizeof(state));
+                    break;
+                  }
+                  case 0x0075:  // 1st VOCS instance
+                  case 0x0085:  // 2nd VOCS instance
+                  {
+                    /* offset location */
+                    uint8_t location[4] = {0x00, 0x02, 0x00, 0x01};
+                    add_element(location, sizeof(location));
+                    break;
+                  }
+                  case 0x0079:  // 1st VOCS instance
+                  case 0x008a:  // 2nd VOCS instance
+                  {
+                    /* offset output description */
+                    uint8_t dest[] = "VOCS_D";
+                    add_element(dest, sizeof(dest));
+                    break;
+                  }
+                  default:
+                    FAIL();
+                    return;
+                }
+              }
+
+              if (do_not_respond_to_reads) {
+                return;
+              }
+              cb(conn_id, GATT_SUCCESS, handles, value.size(), value.data(), cb_data);
             }));
   }
 
@@ -422,9 +535,16 @@ protected:
     TestConnect(address);
     GetConnectedEvent(address, conn_id);
 
-    EXPECT_CALL(gatt_queue, ReadCharacteristic(conn_id, _, _, _)).WillRepeatedly(DoDefault());
-    for (auto const& handle : handles) {
-      EXPECT_CALL(gatt_queue, ReadCharacteristic(conn_id, handle, _, _)).WillOnce(DoDefault());
+    tBTA_GATTC_MULTI received_to_read_1{};
+    tBTA_GATTC_MULTI received_to_read_2{};
+
+    if (!com::android::bluetooth::flags::le_ase_read_multiple_variable()) {
+      EXPECT_CALL(gatt_queue, ReadCharacteristic(conn_id, _, _, _)).WillRepeatedly(DoDefault());
+      for (auto const& handle : handles) {
+        EXPECT_CALL(gatt_queue, ReadCharacteristic(conn_id, handle, _, _)).WillOnce(DoDefault());
+      }
+    } else {
+      EXPECT_CALL(gatt_queue, ReadMultiCharacteristic(_, _, _, _)).Times(testing::AtLeast(1));
     }
 
     GetSearchCompleteEvent(conn_id);
@@ -900,22 +1020,70 @@ TEST_F(VolumeControlTest, test_read_vcs_volume_flags) {
 }
 
 TEST_F(VolumeControlTest, test_read_vocs_volume_offset) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(false);
+  const RawAddress test_address = GetTestAddress(0);
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 2, _)).Times(1);
+  std::vector<uint16_t> handles({0x0072, 0x0082});
+  TestReadCharacteristic(test_address, 1, handles);
+  Mock::VerifyAndClearExpectations(callbacks.get());
+}
+
+TEST_F(VolumeControlTest, test_read_vocs_volume_offset_multi) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(true);
   const RawAddress test_address = GetTestAddress(0);
   EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 1, _));
   EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 2, _));
   std::vector<uint16_t> handles({0x0072, 0x0082});
   TestReadCharacteristic(test_address, 1, handles);
+  Mock::VerifyAndClearExpectations(callbacks.get());
 }
 
 TEST_F(VolumeControlTest, test_read_vocs_offset_location) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(false);
+  const RawAddress test_address = GetTestAddress(0);
+  // It is called twice because after connect read is done once and second read is coming from the
+  // test.
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 2, _)).Times(1);
+  std::vector<uint16_t> handles({0x0075, 0x0085});
+  TestReadCharacteristic(test_address, 1, handles);
+  Mock::VerifyAndClearExpectations(callbacks.get());
+}
+
+TEST_F(VolumeControlTest, test_read_vocs_offset_location_multi) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(true);
   const RawAddress test_address = GetTestAddress(0);
   EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 1, _));
   EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 2, _));
   std::vector<uint16_t> handles({0x0075, 0x0085});
   TestReadCharacteristic(test_address, 1, handles);
+  Mock::VerifyAndClearExpectations(callbacks.get());
 }
 
 TEST_F(VolumeControlTest, test_read_vocs_output_description) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(false);
+  const RawAddress test_address = GetTestAddress(0);
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutVolumeOffsetChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutLocationChanged(test_address, 2, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 1, _)).Times(1);
+  EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 2, _)).Times(1);
+  std::vector<uint16_t> handles({0x0079, 0x008a});
+  TestReadCharacteristic(test_address, 1, handles);
+}
+
+TEST_F(VolumeControlTest, test_read_vocs_output_description_multi) {
+  com::android::bluetooth::flags::provider_->le_ase_read_multiple_variable(true);
   const RawAddress test_address = GetTestAddress(0);
   EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 1, _));
   EXPECT_CALL(*callbacks, OnExtAudioOutDescriptionChanged(test_address, 2, _));
