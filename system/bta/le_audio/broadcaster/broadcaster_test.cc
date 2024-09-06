@@ -224,6 +224,7 @@ public:
               (uint32_t broadcast_id, bluetooth::le_audio::BroadcastState state), (override));
   MOCK_METHOD((void), OnBroadcastMetadataChanged,
               (uint32_t broadcast_id, const BroadcastMetadata& broadcast_metadata), (override));
+  MOCK_METHOD((void), OnBroadcastAudioSessionCreated, (bool success), (override));
 };
 
 class MockAudioHalClientEndpoint : public LeAudioSourceAudioHalClient {
@@ -1174,6 +1175,11 @@ TEST_F(BroadcasterTest, AudioActiveState) {
                                     audio_active_state_true.begin(), audio_active_state_true.end());
 
   // Add Audio Actie State while broadcast created
+  LeAudioSourceAudioHalClient::Callbacks* audio_receiver;
+  EXPECT_CALL(*mock_audio_source_, Start)
+          .WillOnce(DoAll(SaveArg<1>(&audio_receiver), Return(true)))
+          .WillRepeatedly(Return(false));
+
   auto broadcast_id = InstantiateBroadcast();
   auto sm = MockBroadcastStateMachine::GetLastInstance();
   pb_announcement = sm->GetPublicBroadcastAnnouncement();
@@ -1189,10 +1195,6 @@ TEST_F(BroadcasterTest, AudioActiveState) {
                   });
   ON_CALL(*sm, GetPublicBroadcastAnnouncement()).WillByDefault(ReturnRef(pb_announcement));
 
-  LeAudioSourceAudioHalClient::Callbacks* audio_receiver;
-  EXPECT_CALL(*mock_audio_source_, Start)
-          .WillOnce(DoAll(SaveArg<1>(&audio_receiver), Return(true)))
-          .WillRepeatedly(Return(false));
   LeAudioBroadcaster::Get()->StartAudioBroadcast(broadcast_id);
   ASSERT_NE(audio_receiver, nullptr);
 
@@ -1246,11 +1248,11 @@ TEST_F(BroadcasterTest, BigTerminationAndBroadcastStopWhenNoSoundFromTheBeginnin
   ASSERT_TRUE(big_terminate_timer_ != nullptr);
   ASSERT_TRUE(broadcast_stop_timer_ != nullptr);
 
-  auto broadcast_id = InstantiateBroadcast();
   LeAudioSourceAudioHalClient::Callbacks* audio_receiver;
   EXPECT_CALL(*mock_audio_source_, Start)
           .WillOnce(DoAll(SaveArg<1>(&audio_receiver), Return(true)))
           .WillRepeatedly(Return(false));
+  auto broadcast_id = InstantiateBroadcast();
   EXPECT_CALL(mock_broadcaster_callbacks_,
               OnBroadcastStateChanged(broadcast_id, BroadcastState::STREAMING))
           .Times(1);
@@ -1288,11 +1290,11 @@ TEST_F(BroadcasterTest, BigTerminationAndBroadcastStopWhenNoSoundAfterSuspend) {
   ASSERT_TRUE(big_terminate_timer_ != nullptr);
   ASSERT_TRUE(broadcast_stop_timer_ != nullptr);
 
-  auto broadcast_id = InstantiateBroadcast();
   LeAudioSourceAudioHalClient::Callbacks* audio_receiver;
   EXPECT_CALL(*mock_audio_source_, Start)
           .WillOnce(DoAll(SaveArg<1>(&audio_receiver), Return(true)))
           .WillRepeatedly(Return(false));
+  auto broadcast_id = InstantiateBroadcast();
   EXPECT_CALL(mock_broadcaster_callbacks_,
               OnBroadcastStateChanged(broadcast_id, BroadcastState::STREAMING))
           .Times(1);
@@ -1358,11 +1360,11 @@ TEST_F(BroadcasterTest, BigCreationTerminationDependsOnAudioResumeSuspend) {
   ASSERT_TRUE(big_terminate_timer_ != nullptr);
   ASSERT_TRUE(broadcast_stop_timer_ != nullptr);
 
-  auto broadcast_id = InstantiateBroadcast();
   LeAudioSourceAudioHalClient::Callbacks* audio_receiver;
   EXPECT_CALL(*mock_audio_source_, Start)
           .WillOnce(DoAll(SaveArg<1>(&audio_receiver), Return(true)))
           .WillRepeatedly(Return(false));
+  auto broadcast_id = InstantiateBroadcast();
   EXPECT_CALL(mock_broadcaster_callbacks_,
               OnBroadcastStateChanged(broadcast_id, BroadcastState::STREAMING))
           .Times(1);
