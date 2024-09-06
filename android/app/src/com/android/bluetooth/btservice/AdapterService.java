@@ -6283,6 +6283,9 @@ public class AdapterService extends Service {
             for (ProfileService profile : mRunningProfiles) {
                 profile.setTestModeEnabled(testModeEnabled);
             }
+            if (Flags.scanManagerRefactor() && mScanController != null) {
+                mScanController.setTestModeEnabled(testModeEnabled);
+            }
             mTestModeEnabled = testModeEnabled;
             return;
         }
