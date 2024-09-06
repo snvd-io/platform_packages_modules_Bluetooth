@@ -1481,6 +1481,8 @@ public class AdapterService extends Service {
 
         mBluetoothQualityReportReadyCallbacks.kill();
 
+        mBluetoothConnectionCallbacks.kill();
+
         mRemoteCallbacks.kill();
     }
 
