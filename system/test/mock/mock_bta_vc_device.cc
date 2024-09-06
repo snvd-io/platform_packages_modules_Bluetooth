@@ -24,7 +24,7 @@
 #include "bta/vc/devices.h"
 #include "test/common/mock_functions.h"
 
-using namespace bluetooth::vc::internal;
+using bluetooth::vc::internal::VolumeControlDevice;
 
 bool VolumeControlDevice::EnableEncryption() {
   inc_func_call_count(__func__);
