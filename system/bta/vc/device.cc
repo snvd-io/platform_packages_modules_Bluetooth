@@ -16,6 +16,7 @@
  */
 
 #include <bluetooth/log.h>
+#include <com_android_bluetooth_flags.h>
 
 #include <map>
 #include <vector>
@@ -262,26 +263,50 @@ bool VolumeControlDevice::subscribe_for_notifications(tGATT_IF gatt_if, uint16_t
  */
 bool VolumeControlDevice::EnqueueInitialRequests(tGATT_IF gatt_if, GATT_READ_OP_CB chrc_read_cb,
                                                  GATT_WRITE_OP_CB cccd_write_cb) {
+  log::debug("{}", address);
+
+  std::map<uint16_t, uint16_t> hdls_to_subscribe{
+          {volume_state_handle, volume_state_ccc_handle},
+  };
+
   handles_pending.clear();
+  // Status and Flags are mandatory
   handles_pending.insert(volume_state_handle);
   handles_pending.insert(volume_state_ccc_handle);
-  if (!subscribe_for_notifications(gatt_if, volume_state_handle, volume_state_ccc_handle,
-                                   cccd_write_cb)) {
-    return false;
+
+  handles_pending.insert(volume_flags_handle);
+
+  if (GATT_HANDLE_IS_VALID(volume_flags_ccc_handle)) {
+    hdls_to_subscribe[volume_flags_handle] = volume_flags_ccc_handle;
+    handles_pending.insert(volume_flags_ccc_handle);
   }
 
   for (auto const& offset : audio_offsets.volume_offsets) {
-    handles_pending.insert(offset.state_handle);
+    hdls_to_subscribe[offset.state_handle] = offset.state_ccc_handle;
     handles_pending.insert(offset.state_ccc_handle);
-    if (!subscribe_for_notifications(gatt_if, offset.state_handle, offset.state_ccc_handle,
-                                     cccd_write_cb)) {
-      return false;
+
+    if (GATT_HANDLE_IS_VALID(offset.audio_descr_ccc_handle)) {
+      hdls_to_subscribe[offset.audio_descr_handle] = offset.audio_descr_ccc_handle;
+      handles_pending.insert(offset.audio_descr_ccc_handle);
     }
 
-    BtaGattQueue::ReadCharacteristic(connection_id, offset.state_handle, chrc_read_cb, nullptr);
+    if (GATT_HANDLE_IS_VALID(offset.audio_location_ccc_handle)) {
+      hdls_to_subscribe[offset.audio_location_handle] = offset.audio_location_ccc_handle;
+      handles_pending.insert(offset.audio_location_ccc_handle);
+    }
+  }
+
+  for (auto const& handles : hdls_to_subscribe) {
+    log::debug("{}, handle={:#x}, ccc_handle={:#x}", address, handles.first, handles.second);
+    if (!subscribe_for_notifications(gatt_if, handles.first, handles.second, cccd_write_cb)) {
+      log::error("{}, failed to subscribe for handle={:#x}, ccc_handle={:#x}", address,
+                 handles.first, handles.second);
+      return false;
+    }
   }
 
   BtaGattQueue::ReadCharacteristic(connection_id, volume_state_handle, chrc_read_cb, nullptr);
+  BtaGattQueue::ReadCharacteristic(connection_id, volume_flags_handle, chrc_read_cb, nullptr);
 
   return true;
 }
@@ -293,21 +318,42 @@ bool VolumeControlDevice::EnqueueInitialRequests(tGATT_IF gatt_if, GATT_READ_OP_
  * In each case we subscribe first to be sure we do not miss any value change.
  */
 void VolumeControlDevice::EnqueueRemainingRequests(tGATT_IF gatt_if, GATT_READ_OP_CB chrc_read_cb,
+                                                   GATT_READ_MULTI_OP_CB chrc_multi_read_cb,
                                                    GATT_WRITE_OP_CB cccd_write_cb) {
-  std::map<uint16_t, uint16_t> handle_pairs{
-          {volume_flags_handle, volume_flags_ccc_handle},
-  };
+  std::vector<uint16_t> handles_to_read;
 
   for (auto const& offset : audio_offsets.volume_offsets) {
-    handle_pairs[offset.audio_location_handle] = offset.audio_location_ccc_handle;
-    handle_pairs[offset.audio_descr_handle] = offset.audio_descr_ccc_handle;
+    handles_to_read.push_back(offset.state_handle);
+    handles_to_read.push_back(offset.audio_location_handle);
+    handles_to_read.push_back(offset.audio_descr_handle);
   }
 
-  for (auto const& handles : handle_pairs) {
-    if (GATT_HANDLE_IS_VALID(handles.second)) {
-      subscribe_for_notifications(gatt_if, handles.first, handles.second, cccd_write_cb);
+  log::debug("{}, number of handles={}", address, handles_to_read.size());
+
+  if (!com::android::bluetooth::flags::le_ase_read_multiple_variable()) {
+    for (auto const& handle : handles_to_read) {
+      BtaGattQueue::ReadCharacteristic(connection_id, handle, chrc_read_cb, nullptr);
     }
-    BtaGattQueue::ReadCharacteristic(connection_id, handles.first, chrc_read_cb, nullptr);
+    return;
+  }
+
+  size_t sent_cnt = 0;
+
+  while (sent_cnt < handles_to_read.size()) {
+    tBTA_GATTC_MULTI multi_read{};
+    size_t remain_cnt = (handles_to_read.size() - sent_cnt);
+
+    multi_read.num_attr =
+            remain_cnt > GATT_MAX_READ_MULTI_HANDLES ? GATT_MAX_READ_MULTI_HANDLES : remain_cnt;
+
+    auto handles_begin = handles_to_read.begin() + sent_cnt;
+    std::copy(handles_begin, handles_begin + multi_read.num_attr, multi_read.handles);
+
+    sent_cnt += multi_read.num_attr;
+    log::debug{"{}, calling multi with {} attributes, sent_cnt {} ", address, multi_read.num_attr,
+               sent_cnt};
+
+    BtaGattQueue::ReadMultiCharacteristic(connection_id, multi_read, chrc_multi_read_cb, nullptr);
   }
 }
 
