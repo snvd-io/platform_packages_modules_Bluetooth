@@ -330,7 +330,7 @@ public class GattService extends ProfileService {
             super.setTestModeEnabled(enableTestMode);
             mTestModeHandler.removeMessages(0);
             mTestModeHandler.sendEmptyMessageDelayed(
-                0, enableTestMode ? DateUtils.SECOND_IN_MILLIS : 0);
+                    0, enableTestMode ? DateUtils.SECOND_IN_MILLIS : 0);
         }
     }
 
