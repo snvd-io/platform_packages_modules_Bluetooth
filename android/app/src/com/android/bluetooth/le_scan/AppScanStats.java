@@ -938,6 +938,7 @@ public class AppScanStats {
         }
     }
 
+    @SuppressWarnings("JavaUtilDate") // TODO: b/365629730 -- prefer Instant or LocalDate
     public synchronized void dumpToString(StringBuilder sb) {
         long currentTime = System.currentTimeMillis();
         long currTime = SystemClock.elapsedRealtime();
