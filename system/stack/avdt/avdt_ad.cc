@@ -42,15 +42,15 @@ using namespace bluetooth;
 
 AvdtpScb* AvdtpAdaptationLayer::LookupAvdtpScb(const AvdtpTransportChannel& tc) {
   if (tc.ccb_idx >= AVDT_NUM_LINKS) {
-    log::error("AvdtpScb entry not found: invalid ccb_idx:{}", tc.ccb_idx);
+    log::error("AvdtpScb entry not found: invalid ccb_idx: {}", tc.ccb_idx);
     return nullptr;
   }
   if (tc.tcid >= AVDT_NUM_RT_TBL) {
-    log::error("AvdtpScb entry not found: invalid tcid:{}", tc.tcid);
+    log::error("AvdtpScb entry not found: invalid tcid: {}", tc.tcid);
     return nullptr;
   }
   const AvdtpRoutingEntry& re = rt_tbl[tc.ccb_idx][tc.tcid];
-  log::verbose("ccb_idx:{} tcid:{} scb_hdl:{}", tc.ccb_idx, tc.tcid, re.scb_hdl);
+  log::verbose("ccb_idx: {} tcid: {} scb_hdl: {}", tc.ccb_idx, tc.tcid, re.scb_hdl);
   return avdt_scb_by_hdl(re.scb_hdl);
 }
 
@@ -265,8 +265,6 @@ AvdtpTransportChannel* avdt_ad_tc_tbl_alloc(AvdtpCcb* p_ccb) {
  *
  ******************************************************************************/
 uint8_t avdt_ad_tc_tbl_to_idx(AvdtpTransportChannel* p_tbl) {
-  log::verbose("avdt_ad_tc_tbl_to_idx: {}", (long)(p_tbl - avdtp_cb.ad.tc_tbl));
-  /* use array arithmetic to determine index */
   return (uint8_t)(p_tbl - avdtp_cb.ad.tc_tbl);
 }
 
@@ -289,6 +287,11 @@ void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl) {
   AvdtpScb* p_scb;
   tAVDT_SCB_TC_CLOSE close;
 
+  log::verbose("p_tbl: {} state: {} tcid: {} type: {} ccb_idx: {} scb_hdl: {}", fmt::ptr(p_tbl),
+               tc_state_text(p_tbl->state), p_tbl->tcid,
+               tc_type_text(avdt_ad_tcid_to_type(p_tbl->tcid)), p_tbl->ccb_idx,
+               avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][p_tbl->tcid].scb_hdl);
+
   close.old_tc_state = p_tbl->state;
   /* clear avdt_ad_tc_tbl entry */
   p_tbl->state = AVDT_AD_ST_UNUSED;
@@ -305,7 +308,7 @@ void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl) {
   /* look up scb in stream routing table by ccb, tcid */
   p_scb = avdtp_cb.ad.LookupAvdtpScb(*p_tbl);
   if (p_scb == nullptr) {
-    log::error("Cannot find AvdtScb entry: ccb_idx:{} tcid:{}", p_tbl->ccb_idx, p_tbl->tcid);
+    log::error("Cannot find AvdtScb entry: ccb_idx: {} tcid: {}", p_tbl->ccb_idx, p_tbl->tcid);
     return;
   }
   close.tcid = p_tbl->tcid;
@@ -333,8 +336,9 @@ void avdt_ad_tc_open_ind(AvdtpTransportChannel* p_tbl) {
   tAVDT_OPEN open;
   tAVDT_EVT_HDR evt;
 
-  log::verbose("p_tbl:{} state:{} ccb_idx:{} tcid:{} scb_hdl:{}", fmt::ptr(p_tbl), p_tbl->state,
-               p_tbl->ccb_idx, p_tbl->tcid,
+  log::verbose("p_tbl: {} state: {} tcid: {} type: {} ccb_idx: {} scb_hdl: {}", fmt::ptr(p_tbl),
+               tc_state_text(p_tbl->state), p_tbl->tcid,
+               tc_type_text(avdt_ad_tcid_to_type(p_tbl->tcid)), p_tbl->ccb_idx,
                avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][p_tbl->tcid].scb_hdl);
 
   p_tbl->state = AVDT_AD_ST_OPEN;
@@ -344,7 +348,7 @@ void avdt_ad_tc_open_ind(AvdtpTransportChannel* p_tbl) {
     /* set the signal channel to use high priority within the ACL link */
     if (!stack::l2cap::get_interface().L2CA_SetTxPriority(
                 avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][AVDT_CHAN_SIG].lcid, L2CAP_CHNL_PRIORITY_HIGH)) {
-      log::warn("Unable to set L2CAP transmit high priority cid:{}",
+      log::warn("Unable to set L2CAP transmit high priority cid: 0x{:x}",
                 avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][AVDT_CHAN_SIG].lcid);
     }
 
@@ -364,7 +368,7 @@ void avdt_ad_tc_open_ind(AvdtpTransportChannel* p_tbl) {
   /* look up scb in stream routing table by ccb, tcid */
   p_scb = avdtp_cb.ad.LookupAvdtpScb(*p_tbl);
   if (p_scb == nullptr) {
-    log::error("Cannot find AvdtScb entry: ccb_idx:{} tcid:{}", p_tbl->ccb_idx, p_tbl->tcid);
+    log::error("Cannot find AvdtScb entry: ccb_idx: {} tcid: {}", p_tbl->ccb_idx, p_tbl->tcid);
     return;
   }
   /* put lcid in event data */
@@ -394,6 +398,11 @@ void avdt_ad_tc_cong_ind(AvdtpTransportChannel* p_tbl, bool is_congested) {
   AvdtpCcb* p_ccb;
   AvdtpScb* p_scb;
 
+  log::verbose("p_tbl: {} state: {} tcid: {} type: {} ccb_idx: {} scb_hdl: {} is_congested: {}",
+               fmt::ptr(p_tbl), tc_state_text(p_tbl->state), p_tbl->tcid,
+               tc_type_text(avdt_ad_tcid_to_type(p_tbl->tcid)), p_tbl->ccb_idx,
+               avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][p_tbl->tcid].scb_hdl, is_congested);
+
   /* if signaling channel, notify ccb of congestion */
   if (p_tbl->tcid == 0) {
     p_ccb = avdt_ccb_by_idx(p_tbl->ccb_idx);
@@ -406,7 +415,7 @@ void avdt_ad_tc_cong_ind(AvdtpTransportChannel* p_tbl, bool is_congested) {
   /* look up scb in stream routing table by ccb, tcid */
   p_scb = avdtp_cb.ad.LookupAvdtpScb(*p_tbl);
   if (p_scb == nullptr) {
-    log::error("Cannot find AvdtScb entry: ccb_idx:{} tcid:{}", p_tbl->ccb_idx, p_tbl->tcid);
+    log::error("Cannot find AvdtScb entry: ccb_idx: {} tcid: {}", p_tbl->ccb_idx, p_tbl->tcid);
     return;
   }
   tAVDT_SCB_EVT avdt_scb_evt;
@@ -442,7 +451,7 @@ void avdt_ad_tc_data_ind(AvdtpTransportChannel* p_tbl, BT_HDR* p_buf) {
   /* if media or other channel, send event to scb */
   p_scb = avdtp_cb.ad.LookupAvdtpScb(*p_tbl);
   if (p_scb == nullptr) {
-    log::error("Cannot find AvdtScb entry: ccb_idx:{} tcid:{}", p_tbl->ccb_idx, p_tbl->tcid);
+    log::error("Cannot find AvdtScb entry: ccb_idx: {} tcid: {}", p_tbl->ccb_idx, p_tbl->tcid);
     osi_free(p_buf);
     log::error("buffer freed");
     return;
@@ -498,7 +507,7 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb, uint8_t ro
 
   p_tbl = avdt_ad_tc_tbl_alloc(p_ccb);
   if (p_tbl == NULL) {
-    log::error("avdt_ad_open_req: Cannot allocate p_tbl");
+    log::error("Cannot allocate p_tbl");
     return;
   }
 
@@ -510,8 +519,8 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb, uint8_t ro
   if (type != AVDT_CHAN_SIG) {
     /* also set scb_hdl in rt_tbl */
     avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].scb_hdl = avdt_scb_to_hdl(p_scb);
-    log::verbose("avdtp_cb.ad.rt_tbl[{}][{}].scb_hdl = {}", avdt_ccb_to_idx(p_ccb), p_tbl->tcid,
-                 avdt_scb_to_hdl(p_scb));
+    log::verbose("For ccb index: {}, tcid: {} store scb_hdl: {}", avdt_ccb_to_idx(p_ccb),
+                 p_tbl->tcid, avdt_scb_to_hdl(p_scb));
   }
 
   if (role == AVDT_ACP) {
@@ -563,7 +572,9 @@ void avdt_ad_close_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb) {
   AvdtpTransportChannel* p_tbl;
 
   p_tbl = avdt_ad_tc_tbl_by_type(type, p_ccb, p_scb);
-  log::verbose("state: {}", p_tbl->state);
+  log::verbose("p_tbl: {} state: {} tcid: {} type: {} ccb_idx: {} scb_hdl: {}", fmt::ptr(p_tbl),
+               tc_state_text(p_tbl->state), p_tbl->tcid, tc_type_text(type), p_tbl->ccb_idx,
+               avdtp_cb.ad.rt_tbl[p_tbl->ccb_idx][p_tbl->tcid].scb_hdl);
 
   switch (p_tbl->state) {
     case AVDT_AD_ST_UNUSED:
