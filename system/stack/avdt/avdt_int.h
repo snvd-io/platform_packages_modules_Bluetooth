@@ -24,6 +24,10 @@
 #ifndef AVDT_INT_H
 #define AVDT_INT_H
 
+#include <bluetooth/log.h>
+
+#include <cstdint>
+#include <string>
 #include <unordered_map>
 
 #include "avdt_api.h"
@@ -31,6 +35,7 @@
 #include "avdtc_api.h"
 #include "internal_include/bt_target.h"
 #include "l2c_api.h"
+#include "macros.h"
 #include "osi/include/alarm.h"
 #include "osi/include/fixed_queue.h"
 #include "stack/include/bt_hdr.h"
@@ -46,7 +51,7 @@
  ****************************************************************************/
 
 /* channel types */
-enum {
+enum tTRANSPORT_CHANNEL_TYPE : uint8_t {
   AVDT_CHAN_SIG,    /* signaling channel */
   AVDT_CHAN_MEDIA,  /* media channel */
   AVDT_CHAN_REPORT, /* reporting channel */
@@ -309,19 +314,55 @@ enum {
 /* adaption layer number of transport channel table entries - moved to target.h
 #define AVDT_NUM_TC_TBL     (AVDT_NUM_SEPS + AVDT_NUM_LINKS) */
 
-/* "states" used in transport channel table */
-#define AVDT_AD_ST_UNUSED 0  /* Unused - unallocated */
-#define AVDT_AD_ST_IDLE 1    /* No connection */
-#define AVDT_AD_ST_ACP 2     /* Waiting to accept a connection */
-#define AVDT_AD_ST_CONN 4    /* Waiting for connection confirm */
-#define AVDT_AD_ST_CFG 5     /* Waiting for configuration complete */
-#define AVDT_AD_ST_OPEN 6    /* Channel opened */
-#define AVDT_AD_ST_SEC_INT 7 /* Security process as INT */
-#define AVDT_AD_ST_SEC_ACP 8 /* Security process as ACP */
-
 /* Configuration flags. AvdtpTransportChannel.cfg_flags */
 #define AVDT_L2C_CFG_CONN_INT (1 << 2)
 #define AVDT_L2C_CFG_CONN_ACP (1 << 3)
+
+/* "states" used in transport channel table */
+enum tTRANSPORT_CHANNEL_STATE : uint8_t {
+  AVDT_AD_ST_UNUSED = 0,  /* Unused - unallocated */
+  AVDT_AD_ST_IDLE = 1,    /* No connection */
+  AVDT_AD_ST_ACP = 2,     /* Waiting to accept a connection */
+  AVDT_AD_ST_CONN = 4,    /* Waiting for connection confirm */
+  AVDT_AD_ST_CFG = 5,     /* Waiting for configuration complete */
+  AVDT_AD_ST_OPEN = 6,    /* Channel opened */
+  AVDT_AD_ST_SEC_INT = 7, /* Security process as INT */
+  AVDT_AD_ST_SEC_ACP = 8, /* Security process as ACP */
+};
+
+inline std::string tc_state_text(uint8_t state) {
+  tTRANSPORT_CHANNEL_STATE state_ = static_cast<tTRANSPORT_CHANNEL_STATE>(state);
+  switch (state_) {
+    CASE_RETURN_TEXT(AVDT_AD_ST_UNUSED);
+    CASE_RETURN_TEXT(AVDT_AD_ST_IDLE);
+    CASE_RETURN_TEXT(AVDT_AD_ST_ACP);
+    CASE_RETURN_TEXT(AVDT_AD_ST_CONN);
+    CASE_RETURN_TEXT(AVDT_AD_ST_CFG);
+    CASE_RETURN_TEXT(AVDT_AD_ST_OPEN);
+    CASE_RETURN_TEXT(AVDT_AD_ST_SEC_INT);
+    CASE_RETURN_TEXT(AVDT_AD_ST_SEC_ACP);
+    default:
+      RETURN_UNKNOWN_TYPE_STRING(tTRANSPORT_CHANNEL_STATE, state_);
+  }
+}
+
+inline std::string tc_type_text(uint8_t type) {
+  tTRANSPORT_CHANNEL_TYPE type_ = static_cast<tTRANSPORT_CHANNEL_TYPE>(type);
+  switch (type_) {
+    CASE_RETURN_TEXT(AVDT_CHAN_SIG);
+    CASE_RETURN_TEXT(AVDT_CHAN_MEDIA);
+    CASE_RETURN_TEXT(AVDT_CHAN_REPORT);
+    default:
+      RETURN_UNKNOWN_TYPE_STRING(tTRANSPORT_CHANNEL_TYPE, type_);
+  }
+}
+
+namespace fmt {
+template <>
+struct formatter<tTRANSPORT_CHANNEL_STATE> : enum_formatter<tTRANSPORT_CHANNEL_STATE> {};
+template <>
+struct formatter<tTRANSPORT_CHANNEL_TYPE> : enum_formatter<tTRANSPORT_CHANNEL_TYPE> {};
+}  // namespace fmt
 
 /*****************************************************************************
  * data types
