@@ -356,6 +356,7 @@ android_app {
             "-Xep:ReturnAtTheEndOfVoidFunction:ERROR",
             "-Xep:StringCaseLocaleUsage:ERROR",
             "-Xep:StringCharset:ERROR",
+            "-Xep:SynchronizeOnNonFinalField:ERROR",
             "-Xep:ToStringReturnsNull:ERROR",
             "-Xep:UnnecessaryStringBuilder:ERROR",
             "-Xep:UnrecognisedJavadocTag:ERROR",
