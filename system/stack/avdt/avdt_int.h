@@ -307,11 +307,11 @@ enum {
   AVDT_SCB_CC_CLOSE_EVT
 };
 
-/* adaption layer number of stream routing table entries */
+/* Adaptation layer number of stream routing table entries */
 /* 2 channels(1 media, 1 report) for each SEP and one for signalling */
 #define AVDT_NUM_RT_TBL (AVDT_NUM_SEPS * AVDT_CHAN_NUM_TYPES + 1)
 
-/* adaption layer number of transport channel table entries - moved to target.h
+/* Adaptation layer number of transport channel table entries - moved to target.h
 #define AVDT_NUM_TC_TBL     (AVDT_NUM_SEPS + AVDT_NUM_LINKS) */
 
 /* Configuration flags. AvdtpTransportChannel.cfg_flags */
@@ -705,7 +705,7 @@ public:
 
 /**
  * AVDTP stream routing entry.
- * Used in the routing table in the adaption layer.
+ * Used in the routing table in the Adaptation layer.
  */
 class AvdtpRoutingEntry {
 public:
@@ -721,7 +721,7 @@ public:
 };
 
 /**
- * AVDTP adaption layer control block.
+ * AVDTP Adaptation layer control block.
  */
 class AvdtpAdaptationLayer {
 public:
@@ -782,7 +782,7 @@ public:
 
   AvdtpRcb rcb;                       // Registration control block
   AvdtpCcb ccb[AVDT_NUM_LINKS];       // Channel control blocks
-  AvdtpAdaptationLayer ad;            // Adaption layer control block
+  AvdtpAdaptationLayer ad;            // Adaptation layer control block
   tAVDTC_CTRL_CBACK* p_conf_cback;    // Conformance callback function
   const tAVDT_CCB_ACTION* p_ccb_act;  // Pointer to CCB action functions
   const tAVDT_SCB_ACTION* p_scb_act;  // Pointer to SCB action functions
@@ -943,7 +943,7 @@ void avdt_msg_send_rej(AvdtpCcb* p_ccb, uint8_t sig_id, tAVDT_MSG* p_params);
 void avdt_msg_send_grej(AvdtpCcb* p_ccb, uint8_t sig_id, tAVDT_MSG* p_params);
 void avdt_msg_ind(AvdtpCcb* p_ccb, BT_HDR* p_buf);
 
-/* adaption layer function declarations */
+/* Adaptation layer function declarations */
 void avdt_ad_init(void);
 uint8_t avdt_ad_type_to_tcid(uint8_t type, AvdtpScb* p_scb);
 AvdtpTransportChannel* avdt_ad_tc_tbl_by_st(uint8_t type, AvdtpCcb* p_ccb, uint8_t state);

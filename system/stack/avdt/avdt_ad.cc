@@ -18,7 +18,7 @@
 
 /******************************************************************************
  *
- *  This module contains the AVDTP adaption layer.
+ *  This module contains the AVDTP adaptation layer.
  *
  ******************************************************************************/
 
@@ -74,9 +74,7 @@ uint8_t avdt_ad_type_to_tcid(uint8_t type, AvdtpScb* p_scb) {
   uint8_t scb_idx = (avdt_scb_to_hdl(p_scb) - 1) % AVDT_NUM_LINKS;
   // There are AVDT_CHAN_NUM_TYPES channel types per SEP. Here we compute
   // the type index (TCID) from the SEP index and the type itself.
-  uint8_t tcid = (scb_idx * (AVDT_CHAN_NUM_TYPES - 1)) + type;
-  log::verbose("type:{}, tcid: {}", type, tcid);
-  return tcid;
+  return (scb_idx * (AVDT_CHAN_NUM_TYPES - 1)) + type;
 }
 
 /*******************************************************************************
@@ -90,27 +88,22 @@ uint8_t avdt_ad_type_to_tcid(uint8_t type, AvdtpScb* p_scb) {
  *
  ******************************************************************************/
 static uint8_t avdt_ad_tcid_to_type(uint8_t tcid) {
-  uint8_t type;
-
   if (tcid == 0) {
-    type = AVDT_CHAN_SIG;
-  } else {
-    /* tcid translates to type based on number of channels, as follows:
-    ** only media channel   :  tcid=1,2,3,4,5,6...  type=1,1,1,1,1,1...
-    ** media and report     :  tcid=1,2,3,4,5,6...  type=1,2,1,2,1,2...
-    ** media, report, recov :  tcid=1,2,3,4,5,6...  type=1,2,3,1,2,3...
-    */
-    type = ((tcid + AVDT_CHAN_NUM_TYPES - 2) % (AVDT_CHAN_NUM_TYPES - 1)) + 1;
+    return AVDT_CHAN_SIG;
   }
-  log::verbose("tcid: {}, type: {}", tcid, type);
-  return type;
+  /* tcid translates to type based on number of channels, as follows:
+  ** only media channel   :  tcid=1,2,3,4,5,6...  type=1,1,1,1,1,1...
+  ** media and report     :  tcid=1,2,3,4,5,6...  type=1,2,1,2,1,2...
+  ** media, report, recov :  tcid=1,2,3,4,5,6...  type=1,2,3,1,2,3...
+  */
+  return ((tcid + AVDT_CHAN_NUM_TYPES - 2) % (AVDT_CHAN_NUM_TYPES - 1)) + 1;
 }
 
 /*******************************************************************************
  *
  * Function         avdt_ad_init
  *
- * Description      Initialize adaption layer.
+ * Description      Initialize adaptation layer.
  *
  *
  * Returns          Nothing.
@@ -131,7 +124,7 @@ void avdt_ad_init(void) {
  *
  * Function         avdt_ad_tc_tbl_by_st
  *
- * Description      Find adaption layer transport channel table entry matching
+ * Description      Find adaptation layer transport channel table entry matching
  *                  the given state.
  *
  *
@@ -183,7 +176,7 @@ AvdtpTransportChannel* avdt_ad_tc_tbl_by_st(uint8_t type, AvdtpCcb* p_ccb, uint8
  *
  * Function         avdt_ad_tc_tbl_by_lcid
  *
- * Description      Find adaption layer transport channel table entry by LCID.
+ * Description      Find adaptation layer transport channel table entry by LCID.
  *
  *
  * Returns          Pointer to entry.
@@ -302,8 +295,7 @@ void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl) {
   p_tbl->cfg_flags = 0;
   p_tbl->peer_mtu = L2CAP_DEFAULT_MTU;
 
-  log::verbose("tcid: {}, old: {}", p_tbl->tcid, close.old_tc_state);
-  /* if signaling channel, notify ccb that channel open */
+  /* if signaling channel, notify ccb that channel close */
   if (p_tbl->tcid == 0) {
     p_ccb = avdt_ccb_by_idx(p_tbl->ccb_idx);
     avdt_ccb_event(p_ccb, AVDT_CCB_LL_CLOSE_EVT, NULL);
@@ -511,27 +503,22 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb, uint8_t ro
   }
 
   p_tbl->tcid = avdt_ad_type_to_tcid(type, p_scb);
-  log::verbose("avdt_ad_open_req: type: {}, role: {}, tcid:{}", type, role, p_tbl->tcid);
+  p_tbl->my_mtu = kAvdtpMtu;
+  log::verbose("p_tbl: {} state: {} tcid: {} type: {} role: {} my_mtu: {}", fmt::ptr(p_tbl),
+               tc_state_text(p_tbl->state), p_tbl->tcid, tc_type_text(type), role, p_tbl->my_mtu);
 
-  if (type == AVDT_CHAN_SIG) {
-    /* if signaling, get mtu from registration control block */
-    p_tbl->my_mtu = kAvdtpMtu;
-  } else {
-    /* otherwise get mtu from scb */
-    p_tbl->my_mtu = kAvdtpMtu;
-
+  if (type != AVDT_CHAN_SIG) {
     /* also set scb_hdl in rt_tbl */
     avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].scb_hdl = avdt_scb_to_hdl(p_scb);
     log::verbose("avdtp_cb.ad.rt_tbl[{}][{}].scb_hdl = {}", avdt_ccb_to_idx(p_ccb), p_tbl->tcid,
                  avdt_scb_to_hdl(p_scb));
   }
 
-  /* if we're acceptor, we're done; just sit back and listen */
   if (role == AVDT_ACP) {
+    /* if we're acceptor, we're done; just sit back and listen */
     p_tbl->state = AVDT_AD_ST_ACP;
-  }
-  /* else we're inititator, start the L2CAP connection */
-  else {
+  } else {
+    /* else we're inititator, start the L2CAP connection */
     p_tbl->state = AVDT_AD_ST_CONN;
 
     /* call l2cap connect req */
@@ -542,18 +529,20 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb, uint8_t ro
       lcid = stack::l2cap::get_interface().L2CA_ConnectReqWithSecurity(AVDT_PSM, p_ccb->peer_addr,
                                                                        BTM_SEC_OUT_AUTHENTICATE);
     }
-    if (lcid != 0) {
-      /* if connect req ok, store tcid in lcid table  */
-      avdtp_cb.ad.lcid_tbl[lcid] = avdt_ad_tc_tbl_to_idx(p_tbl);
-      log::verbose("avdtp_cb.ad.lcid_tbl[{}] = {}", lcid, avdt_ad_tc_tbl_to_idx(p_tbl));
 
-      avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = lcid;
-      log::verbose("avdtp_cb.ad.rt_tbl[{}][{}].lcid = 0x{:x}", avdt_ccb_to_idx(p_ccb), p_tbl->tcid,
-                   lcid);
-    } else {
+    if (lcid == 0) {
       /* if connect req failed, call avdt_ad_tc_close_ind() */
       avdt_ad_tc_close_ind(p_tbl);
+      return;
     }
+
+    /* if connect req ok, store tcid in lcid table  */
+    avdtp_cb.ad.lcid_tbl[lcid] = avdt_ad_tc_tbl_to_idx(p_tbl);
+    log::verbose("For lcid: 0x{:x} store table index: {}", lcid, avdt_ad_tc_tbl_to_idx(p_tbl));
+
+    avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = lcid;
+    log::verbose("For ccb index: {} and tcid: {} store lcid 0x{:x}", avdt_ccb_to_idx(p_ccb),
+                 p_tbl->tcid, lcid);
   }
 }
 
