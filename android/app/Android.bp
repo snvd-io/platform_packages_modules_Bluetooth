@@ -363,6 +363,7 @@ android_app {
             "-Xep:UnusedNestedClass:ERROR",
             "-Xep:UnusedVariable:ERROR",
             "-Xep:WaitNotInLoop:ERROR",
+            "-Xep:WakelockReleasedDangerously:ERROR",
 
             // After fixing this errorprone, we decided to not merge the change.
             // It is not very readable and the benefits are minimal when looking
