@@ -1319,9 +1319,10 @@ enum MsftCommandQueue {
 #[derive(Debug)]
 enum MsftCommandPending {
     NoPending,
-    Add(u8, ScanFilter), // (scanner_id, new_monitor)
-    Remove(u8),          // (monitor_handle)
-    Enable(bool),        // (enabled)
+    Aborted(u8, ScanFilter), // The pending command is an |Add| and it must be remove.
+    Add(u8, ScanFilter),     // (scanner_id, new_monitor)
+    Remove(u8),              // (monitor_handle)
+    Enable(bool),            // (enabled)
 }
 
 #[derive(PartialEq)]
@@ -1635,6 +1636,41 @@ impl BluetoothGatt {
         }
     }
 
+    fn msft_abort_add_commands_by_scanner_id(&mut self, scanner_id: u8) {
+        // For the commands that have not yet dispatched to LibBluetooth, simply remove.
+        self.msft_command_queue.retain(|cmd| {
+            if let MsftCommandQueue::Add(id, _) = cmd {
+                if scanner_id == *id {
+                    return false;
+                }
+            }
+            true
+        });
+        // If the pending command matches the target scanner ID, set Abort flag.
+        if let MsftCommandPending::Add(id, monitor) = &self.msft_command_pending {
+            if scanner_id == *id {
+                self.msft_command_pending = MsftCommandPending::Aborted(*id, monitor.clone());
+            }
+        }
+    }
+
+    fn msft_drain_all_handles_by_scanner_id(&mut self, scanner_id: u8) -> Vec<u8> {
+        let mut handles: Vec<u8> = vec![];
+        if let Some(scanner) = self.find_scanner_by_id(scanner_id) {
+            if let Some(handle) = scanner.monitor_handle.take() {
+                handles.push(handle);
+            }
+            for (_addr, handle) in scanner.addr_handle_map.drain() {
+                if let Some(h) = handle {
+                    handles.push(h);
+                }
+            }
+        } else {
+            warn!("msft_drain_all_handles_by_scanner_id: Scanner {} not found", scanner_id);
+        }
+        handles
+    }
+
     /// The resume_scan method is used to resume scanning after system suspension.
     /// It assumes that scanner.filter has already had the filter data.
     fn resume_scan(&mut self, scanner_id: u8) -> BtStatus {
@@ -1697,14 +1733,14 @@ impl BluetoothGatt {
                 );
                 return;
             } else {
-                debug!(
+                error!(
                     "on_child_monitor_added: bd_addr {} has been removed, removing the addr monitor {}.",
                     DisplayAddress(&addr_info.bd_addr),
                     monitor_handle
                 );
             }
         } else {
-            debug!(
+            error!(
                 "on_child_monitor_added: scanner has been removed, removing the addr monitor {}",
                 monitor_handle
             );
@@ -1717,7 +1753,7 @@ impl BluetoothGatt {
             debug!("Added adv pattern monitor handle = {}", monitor_handle);
             scanner.monitor_handle = Some(monitor_handle);
         } else {
-            debug!(
+            error!(
                 "on_pattern_monitor_added: scanner has been removed, removing the addr monitor {}",
                 monitor_handle
             );
@@ -2031,11 +2067,18 @@ impl IBluetoothGatt for BluetoothGatt {
             scanner.filter = filter.clone();
             scanner.scan_settings = Some(settings);
         } else {
-            warn!("Scanner {} not found", scanner_id);
+            warn!("start_scan: Scanner {} not found", scanner_id);
             return BtStatus::Fail;
         }
 
         if self.is_msft_supported() {
+            // Remove all pending filters
+            self.msft_abort_add_commands_by_scanner_id(scanner_id);
+            // Remove all existing filters
+            for handle in self.msft_drain_all_handles_by_scanner_id(scanner_id).into_iter() {
+                self.msft_command_queue.push_back(MsftCommandQueue::Remove(handle));
+            }
+            // Add the new filter
             if let Some(filter) = filter {
                 self.msft_command_queue.push_back(MsftCommandQueue::Add(scanner_id, filter));
             }
@@ -2057,30 +2100,19 @@ impl IBluetoothGatt for BluetoothGatt {
             return BtStatus::Busy;
         }
 
-        let monitor_handles = {
-            if let Some(scanner) = self.find_scanner_by_id(scanner_id) {
-                scanner.is_enabled = false;
-                let mut handles: Vec<u8> = vec![];
-
-                if let Some(handle) = scanner.monitor_handle.take() {
-                    handles.push(handle);
-                }
-
-                for (_addr, handle) in scanner.addr_handle_map.drain() {
-                    if let Some(h) = handle {
-                        handles.push(h);
-                    }
-                }
-                handles
-            } else {
-                warn!("Scanner {} not found", scanner_id);
-                // Clients can assume success of the removal since the scanner does not exist.
-                return BtStatus::Success;
-            }
-        };
+        if let Some(scanner) = self.find_scanner_by_id(scanner_id) {
+            scanner.is_enabled = false;
+        } else {
+            warn!("stop_scan: Scanner {} not found", scanner_id);
+            // Clients can assume success of the removal since the scanner does not exist.
+            return BtStatus::Success;
+        }
 
         if self.is_msft_supported() {
-            for handle in monitor_handles.into_iter() {
+            // Remove all pending filters
+            self.msft_abort_add_commands_by_scanner_id(scanner_id);
+            // Remove all existing filters
+            for handle in self.msft_drain_all_handles_by_scanner_id(scanner_id).into_iter() {
                 self.msft_command_queue.push_back(MsftCommandQueue::Remove(handle));
             }
             self.msft_run_queue_and_update_scan();
@@ -3618,14 +3650,19 @@ impl BtifGattScannerInbandCallbacks for BluetoothGatt {
         if !self.enabled {
             return;
         }
-        let MsftCommandPending::Add(scanner_id, ref monitor) = self.msft_command_pending else {
-            error!(
-                "Unexpected MsftAdvMonitorAddCallback monitor_handle={} status={}, pending={:?}",
-                monitor_handle, status, self.msft_command_pending
-            );
-            return;
+        let (should_abort, scanner_id, monitor) = match &self.msft_command_pending {
+            MsftCommandPending::Aborted(scanner_id, monitor) => {
+                (true, *scanner_id, monitor.clone())
+            }
+            MsftCommandPending::Add(scanner_id, monitor) => (false, *scanner_id, monitor.clone()),
+            _ => {
+                error!(
+                    "Unexpected MsftAdvMonitorAddCallback monitor_handle={} status={}, pending={:?}",
+                    monitor_handle, status, self.msft_command_pending
+                );
+                return;
+            }
         };
-        let monitor = monitor.clone();
         self.msft_command_pending = MsftCommandPending::NoPending;
 
         if status != 0 {
@@ -3633,6 +3670,9 @@ impl BtifGattScannerInbandCallbacks for BluetoothGatt {
                 "Error adding advertisement monitor {:?}, scanner_id={}, status={}",
                 monitor, scanner_id, status
             );
+        } else if should_abort {
+            debug!("Aborted MSFT monitor, removing");
+            self.msft_command_queue.push_back(MsftCommandQueue::Remove(monitor_handle));
         } else {
             match monitor.condition {
                 ScanFilterCondition::Patterns(_) => {
@@ -3834,19 +3874,19 @@ impl BtifGattScannerCallbacks for BluetoothGatt {
             });
         }
 
-        let corresponding_scanner = match corresponding_scanner {
-            Some(scanner) => scanner,
-            None => {
-                warn!("No scanner having monitor handle {}", track_adv_info.monitor_handle);
-                return;
-            }
+        let Some(corresponding_scanner) = corresponding_scanner else {
+            info!(
+                "No scanner having monitor handle {}, already removed?",
+                track_adv_info.monitor_handle
+            );
+            return;
         };
-        let scanner_id = match corresponding_scanner.scanner_id {
-            Some(scanner_id) => scanner_id,
-            None => {
-                warn!("No scanner id having monitor handle {}", track_adv_info.monitor_handle);
-                return;
-            }
+        let Some(scanner_id) = corresponding_scanner.scanner_id else {
+            error!(
+                "Scanner having monitor handle {} is missing scanner id",
+                track_adv_info.monitor_handle
+            );
+            return;
         };
 
         let controller_need_separate_pattern_and_address =
