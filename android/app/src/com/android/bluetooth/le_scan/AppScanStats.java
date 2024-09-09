@@ -957,7 +957,7 @@ public class AppScanStats {
         int lowPowerScan = mLowPowerScan;
         int balancedScan = mBalancedScan;
         int lowLatencyScan = mLowLantencyScan;
-        int ambientDiscoveryScan = mAmbientDiscoveryScan;
+        long ambientDiscoveryScan = mAmbientDiscoveryScan;
 
         if (!mOngoingScans.isEmpty()) {
             for (Integer key : mOngoingScans.keySet()) {

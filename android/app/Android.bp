@@ -348,6 +348,7 @@ android_app {
             "-Xep:MockNotUsedInProduction:ERROR",
             "-Xep:ModifyCollectionInEnhancedForLoop:ERROR",
             "-Xep:NarrowCalculation:ERROR",
+            "-Xep:NarrowingCompoundAssignment:ERROR",
             "-Xep:NonApiType:ERROR",
             "-Xep:NonAtomicVolatileUpdate:ERROR",
             "-Xep:NonCanonicalType:ERROR",
