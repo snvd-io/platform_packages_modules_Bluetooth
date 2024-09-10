@@ -1302,6 +1302,7 @@ static tGATT_IF GATT_Register_Dynamic(const Uuid& app_uuid128, const std::string
       if (gatt_cb.next_gatt_if == 0) {
         gatt_cb.next_gatt_if = 1;
       }
+      return p_reg->gatt_if;
     }
     i_gatt_if++;
     if (i_gatt_if == 0) {
