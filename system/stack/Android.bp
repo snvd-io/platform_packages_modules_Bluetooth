@@ -1567,6 +1567,7 @@ cc_test {
         ":TestCommonStackConfig",
         ":TestMockMainShim",
         ":TestMockMainShimEntry",
+        ":TestMockStackL2capInterface",
         ":TestStubOsi",
         "eatt/eatt.cc",
         "test/common/mock_btif_storage.cc",
