@@ -103,7 +103,6 @@ void BtaAvCo::Init(const std::vector<btav_a2dp_codec_config_t>& codec_priorities
 }
 
 void BtaAvCo::Reset() {
-  bta_av_legacy_state_.Reset();
   bta_av_source_state_.Reset();
   bta_av_sink_state_.Reset();
   content_protect_flag_ = 0;
@@ -980,12 +979,6 @@ void BtaAvCo::DebugDump(int fd) {
   //
   // Active peer codec-specific stats
   //
-  if (bta_av_legacy_state_.getActivePeer() != nullptr) {
-    A2dpCodecs* a2dp_codecs = bta_av_legacy_state_.getActivePeer()->GetCodecs();
-    if (a2dp_codecs != nullptr) {
-      a2dp_codecs->debug_codec_dump(fd);
-    }
-  }
   if (bta_av_source_state_.getActivePeer() != nullptr) {
     A2dpCodecs* a2dp_codecs = bta_av_source_state_.getActivePeer()->GetCodecs();
     if (a2dp_codecs != nullptr) {
@@ -1000,10 +993,6 @@ void BtaAvCo::DebugDump(int fd) {
   }
 
   dprintf(fd, "\nA2DP Peers State:\n");
-  dprintf(fd, "  Active peer: %s\n",
-          (bta_av_legacy_state_.getActivePeer() != nullptr)
-                  ? ADDRESS_TO_LOGGABLE_CSTR(bta_av_legacy_state_.getActivePeer()->addr)
-                  : "null");
   dprintf(fd, "  Source: active peer: %s\n",
           (bta_av_source_state_.getActivePeer() != nullptr)
                   ? ADDRESS_TO_LOGGABLE_CSTR(bta_av_source_state_.getActivePeer()->addr)
