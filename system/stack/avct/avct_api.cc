@@ -106,6 +106,9 @@ void AVCT_Deregister(void) {
 
   /* deregister PSM with L2CAP */
   stack::l2cap::get_interface().L2CA_Deregister(AVCT_PSM);
+
+  /* deregister AVCT_BR_PSM with L2CAP */
+  stack::l2cap::get_interface().L2CA_Deregister(AVCT_BR_PSM);
 }
 
 /*******************************************************************************
