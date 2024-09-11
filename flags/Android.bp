@@ -28,6 +28,7 @@ aconfig_declarations {
         "hap.aconfig",
         "hci.aconfig",
         "hfp.aconfig",
+        "hfpclient.aconfig",
         "hid.aconfig",
         "l2cap.aconfig",
         "le_advertising.aconfig",

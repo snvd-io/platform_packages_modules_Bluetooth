@@ -22,6 +22,7 @@ aconfig("bluetooth_flags_c_lib") {
     "hap.aconfig",
     "hci.aconfig",
     "hfp.aconfig",
+    "hfpclient.aconfig",
     "hid.aconfig",
     "l2cap.aconfig",
     "le_advertising.aconfig",
