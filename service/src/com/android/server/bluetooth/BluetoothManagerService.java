@@ -1134,6 +1134,10 @@ class BluetoothManagerService {
         Log.d(TAG, "unbindAndFinish(): mAdapter=" + mAdapter + " isBinding=" + isBinding());
 
         mHandler.removeMessages(MESSAGE_BLUETOOTH_STATE_CHANGE);
+        if (mAdapter == null) {
+            // mAdapter can be null when Bluetooth crashed and sent SERVICE_DISCONNECTED
+            return;
+        }
         long currentTimeMs = System.currentTimeMillis();
 
         try {
