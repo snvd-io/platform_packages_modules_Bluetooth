@@ -1946,6 +1946,14 @@ class BluetoothManagerService {
             Log.d(TAG, "bluetoothStateChangeHandler: Already in state " + mState);
             return;
         }
+
+        if (newState == STATE_OFF) {
+            // If Bluetooth is off, send service down event to proxy objects, and unbind
+            Log.d(TAG, "bluetoothStateChangeHandler: Bluetooth is OFF send Service Down");
+            sendBluetoothServiceDownCallback();
+            unbindAndFinish();
+        }
+
         mState.set(newState);
 
         broadcastIntentStateChange(BluetoothAdapter.ACTION_BLE_STATE_CHANGED, prevState, newState);
@@ -1973,11 +1981,6 @@ class BluetoothManagerService {
                 AutoOnFeature.notifyBluetoothOn(mCurrentUserContext);
             }
             sendBluetoothOnCallback();
-        } else if (newState == STATE_OFF) {
-            // If Bluetooth is off, send service down event to proxy objects, and unbind
-            Log.d(TAG, "bluetoothStateChangeHandler: Bluetooth is OFF send Service Down");
-            sendBluetoothServiceDownCallback();
-            unbindAndFinish();
         } else if (newState == STATE_BLE_ON && prevState == STATE_BLE_TURNING_ON) {
             continueFromBleOnState();
         } // Nothing specific to do for STATE_TURNING_<X>
