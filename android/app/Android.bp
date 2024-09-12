@@ -337,6 +337,7 @@ android_app {
             "-Xep:EmptyCatch:ERROR",
             "-Xep:EqualsGetClass:ERROR",
             "-Xep:FallThrough:ERROR",
+            "-Xep:Finalize:ERROR",
             "-Xep:HidingField:ERROR",
             "-Xep:InlineMeInliner:ERROR",
             "-Xep:InvalidBlockTag:ERROR",
