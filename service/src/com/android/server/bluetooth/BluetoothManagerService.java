@@ -1184,7 +1184,7 @@ class BluetoothManagerService {
         Log.d(TAG, "Force sleep 100 ms for propagating Bluetooth app death");
         SystemClock.sleep(100); // required to let the ActivityManager be notified of BT death
 
-        mAdapter = null;
+        mAdapter = null; // Don't call resetAdapter as we already call unbindService
         mHandler.removeMessages(MESSAGE_TIMEOUT_BIND);
     }
 
@@ -1603,12 +1603,10 @@ class BluetoothManagerService {
 
                 case MESSAGE_BLUETOOTH_SERVICE_DISCONNECTED:
                     Log.e(TAG, "MESSAGE_BLUETOOTH_SERVICE_DISCONNECTED");
-                    // if service is unbinded already, do nothing and return
-                    if (mAdapter == null) {
+
+                    if (!resetAdapter()) {
                         break;
                     }
-                    mContext.unbindService(mConnection);
-                    mAdapter = null;
 
                     // log the unexpected crash
                     addCrashLog();
@@ -1646,14 +1644,9 @@ class BluetoothManagerService {
                          * service restarts */
                         mEnable = true;
                         ActiveLogs.add(ENABLE_DISABLE_REASON_RESTARTED, true);
-                        handleEnable(mQuietEnable);
+                        handleEnable();
                     } else {
-                        // if service is unbinded already, do nothing and return
-                        if (mAdapter == null) {
-                            break;
-                        }
-                        mContext.unbindService(mConnection);
-                        mAdapter = null;
+                        resetAdapter();
                         Log.e(TAG, "Reach maximum retry to restart Bluetooth!");
                     }
                     break;
@@ -1702,7 +1695,7 @@ class BluetoothManagerService {
                         // reason; maybe the Bluetooth service wasn't encryption
                         // aware, so try binding again.
                         Log.d(TAG, "Enabled but not bound; retrying after unlock");
-                        handleEnable(mQuietEnable);
+                        handleEnable();
                     }
                     break;
             }
@@ -1743,7 +1736,7 @@ class BluetoothManagerService {
             ActiveLogs.add(ENABLE_DISABLE_REASON_USER_SWITCH, true);
             // mEnable flag could have been reset on stopBle. Reenable it.
             mEnable = true;
-            handleEnable(mQuietEnable);
+            handleEnable();
         }
     }
 
@@ -1773,53 +1766,43 @@ class BluetoothManagerService {
             setBluetoothPersistedState(BLUETOOTH_ON_BLUETOOTH);
         }
 
-        if (mAdapter != null) {
-            boolean isHandled = true;
-            switch (mState.get()) {
-                case STATE_BLE_ON:
-                    if (isBle == 1) {
-                        Log.i(TAG, "Already at BLE_ON State");
-                    } else {
-                        Log.w(TAG, "BT Enable in BLE_ON State, going to ON");
-                        bleOnToOn();
-                    }
-                    break;
-                case STATE_BLE_TURNING_ON:
-                case STATE_TURNING_ON:
-                case STATE_ON:
-                    Log.i(TAG, "MESSAGE_ENABLE: already enabled");
-                    break;
-                default:
-                    isHandled = false;
-                    break;
-            }
-            if (isHandled) return;
+        if (mState.oneOf(STATE_BLE_TURNING_ON, STATE_TURNING_ON, STATE_ON)) {
+            Log.i(TAG, "MESSAGE_ENABLE: already enabled. Current state=" + mState);
+            return;
         }
 
-        mQuietEnable = (quietEnable == 1);
-        if (mAdapter == null) {
-            handleEnable(mQuietEnable);
-        } else {
+        if (mState.oneOf(STATE_BLE_ON) && isBle == 1) {
+            Log.i(TAG, "MESSAGE_ENABLE: Already in BLE_ON while being requested to go to BLE_ON");
+            return;
+        }
+
+        if (mState.oneOf(STATE_BLE_ON)) {
+            Log.i(TAG, "MESSAGE_ENABLE: Bluetooth transition from STATE_BLE_ON to STATE_ON");
+            bleOnToOn();
+            return;
+        }
+
+        if (mAdapter != null) {
+            // TODO: b/339548431 - Adapt this after removal of Flags.explicitKillFromSystemServer
             //
-            // We need to wait until transitioned to STATE_OFF and
-            // the previous Bluetooth process has exited. The
-            // waiting period has three components:
-            // (a) Wait until the local state is STATE_OFF. This
-            //     is accomplished by sending delay a message
-            //     MESSAGE_HANDLE_ENABLE_DELAYED
-            // (b) Wait until the STATE_OFF state is updated to
-            //     all components.
-            // (c) Wait until the Bluetooth process exits, and
-            //     ActivityManager detects it.
-            // The waiting for (b) and (c) is accomplished by
-            // delaying the MESSAGE_RESTART_BLUETOOTH_SERVICE
-            // message. The delay time is backed off if Bluetooth
+            // We need to wait until transitioned to STATE_OFF and the previous Bluetooth process
+            // has exited. The waiting period has three components:
+            // (a) Wait until the local state is STATE_OFF. This is accomplished by sending delay a
+            //     message MESSAGE_HANDLE_ENABLE_DELAYED
+            // (b) Wait until the STATE_OFF state is updated to all components.
+            // (c) Wait until the Bluetooth process exits, and ActivityManager detects it.
+            //
+            // The waiting for (b) and (c) is accomplished by delaying the
+            // MESSAGE_RESTART_BLUETOOTH_SERVICE message. The delay time is backed off if Bluetooth
             // continuously failed to turn on itself.
-            //
             mWaitForEnableRetry = 0;
             mHandler.sendEmptyMessageDelayed(
                     MESSAGE_HANDLE_ENABLE_DELAYED, ENABLE_DISABLE_DELAY_MS);
+            return;
         }
+
+        mQuietEnable = (quietEnable == 1);
+        handleEnable();
     }
 
     private void handleDisableMessage() {
@@ -1863,9 +1846,16 @@ class BluetoothManagerService {
         }
     }
 
-    private void handleEnable(boolean quietMode) {
-        mQuietEnable = quietMode;
+    private boolean resetAdapter() {
+        if (mAdapter == null) {
+            return false;
+        }
+        mAdapter = null;
+        mContext.unbindService(mConnection);
+        return true;
+    }
 
+    private void handleEnable() {
         if (mAdapter == null && !isBinding()) {
             bindToAdapter();
         } else if (!Flags.fastBindToApp() && mAdapter != null) {
@@ -2069,11 +2059,7 @@ class BluetoothManagerService {
 
         sendBluetoothServiceDownCallback();
 
-        if (mAdapter != null) {
-            mAdapter = null;
-            // Unbind
-            mContext.unbindService(mConnection);
-        }
+        resetAdapter();
 
         mHandler.removeMessages(MESSAGE_BLUETOOTH_STATE_CHANGE);
         mState.set(STATE_OFF);
@@ -2450,42 +2436,22 @@ class BluetoothManagerService {
                                         this::enableFromAutoOn)));
     }
 
-    /**
-     * Check if BLE is supported by this platform
-     *
-     * @param context current device context
-     * @return true if BLE is supported, false otherwise
-     */
+    /** Check if BLE is supported by this platform */
     private static boolean isBleSupported(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
     }
 
-    /**
-     * Check if this is an automotive device
-     *
-     * @param context current device context
-     * @return true if this Android device is an automotive device, false otherwise
-     */
+    /** Check if this is an automotive device */
     private static boolean isAutomotive(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
-    /**
-     * Check if this is a watch device
-     *
-     * @param context current device context
-     * @return true if this Android device is a watch device, false otherwise
-     */
+    /** Check if this is a watch device */
     private static boolean isWatch(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
-    /**
-     * Check if this is a TV device
-     *
-     * @param context current device context
-     * @return true if this Android device is a TV device, false otherwise
-     */
+    /** Check if this is a TV device */
     private static boolean isTv(Context context) {
         PackageManager pm = context.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
