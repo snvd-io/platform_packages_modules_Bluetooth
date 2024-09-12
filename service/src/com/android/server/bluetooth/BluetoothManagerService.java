@@ -608,16 +608,11 @@ class BluetoothManagerService {
             mEnableExternal = true;
         }
 
-        { // AutoOn feature initialization of flag guarding
-            final boolean autoOnFlag = Flags.autoOnFeature();
-            final boolean autoOnProperty =
-                    SystemProperties.getBoolean("bluetooth.server.automatic_turn_on", false);
-            Log.d(TAG, "AutoOnFeature status: flag=" + autoOnFlag + ", property=" + autoOnProperty);
-
-            mDeviceConfigAllowAutoOn = autoOnFlag && autoOnProperty;
-            if (mDeviceConfigAllowAutoOn) {
-                Counter.logIncrement("bluetooth.value_auto_on_supported");
-            }
+        mDeviceConfigAllowAutoOn =
+                SystemProperties.getBoolean("bluetooth.server.automatic_turn_on", false);
+        Log.d(TAG, "AutoOnFeature property=" + mDeviceConfigAllowAutoOn);
+        if (mDeviceConfigAllowAutoOn) {
+            Counter.logIncrement("bluetooth.value_auto_on_supported");
         }
     }
 
