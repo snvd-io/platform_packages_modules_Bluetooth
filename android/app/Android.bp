@@ -342,6 +342,7 @@ android_app {
             "-Xep:InvalidBlockTag:ERROR",
             "-Xep:InvalidParam:ERROR",
             "-Xep:JavaUtilDate:ERROR",
+            "-Xep:LockOnNonEnclosingClassLiteral:ERROR",
             "-Xep:LoopOverCharArray:ERROR",
             "-Xep:MissingCasesInEnumSwitch:ERROR",
             "-Xep:MixedMutabilityReturnType:ERROR",
