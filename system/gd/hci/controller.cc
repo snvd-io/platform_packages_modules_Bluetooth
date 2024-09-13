@@ -31,6 +31,7 @@
 #include "hci_controller_generated.h"
 #include "os/metrics.h"
 #include "os/system_properties.h"
+#include "stack/include/hcidefs.h"
 #if TARGET_FLOSS
 #include "sysprops/sysprops_module.h"
 #endif
@@ -360,6 +361,13 @@ struct Controller::impl {
     log::assert_that(status == ErrorCode::SUCCESS, "Status {}", ErrorCodeText(status));
     uint8_t page_number = complete_view.GetPageNumber();
     extended_lmp_features_array_.push_back(complete_view.GetExtendedLmpFeatures());
+    if (page_number == 0 && local_version_information_.manufacturer_name_ == LMP_COMPID_INTEL &&
+        local_version_information_.lmp_version_ == LmpVersion::V_4_2 &&
+        local_version_information_.lmp_subversion_ == LMP_SUBVERSION_INTEL_AC7265) {
+      // Override the packet boundary feature bit on Intel AC7265 because it don't support well.
+      extended_lmp_features_array_.back() &=
+              ~static_cast<uint64_t>(LMPFeaturesPage0Bits::NON_FLUSHABLE_PACKET_BOUNDARY_FLAG);
+    }
     bluetooth::os::LogMetricBluetoothLocalSupportedFeatures(page_number,
                                                             complete_view.GetExtendedLmpFeatures());
     // Query all extended features
