@@ -48,6 +48,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
+import com.android.bluetooth.flags.Flags;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -67,6 +68,12 @@ import java.util.UUID;
 public class HeadsetClientService extends ProfileService {
     private static final String TAG = HeadsetClientService.class.getSimpleName();
 
+    // Maximum number of devices we can try connecting to in one session
+    private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
+
+    @VisibleForTesting static final int MAX_HFP_SCO_VOICE_CALL_VOLUME = 15; // HFP 1.5 spec.
+    @VisibleForTesting static final int MIN_HFP_SCO_VOICE_CALL_VOLUME = 1; // HFP 1.5 spec.
+
     // This is also used as a lock for shared data in {@link HeadsetClientService}
     @GuardedBy("mStateMachineMap")
     private final HashMap<BluetoothDevice, HeadsetClientStateMachine> mStateMachineMap =
@@ -81,8 +88,9 @@ public class HeadsetClientService extends ProfileService {
     private final AudioManager mAudioManager;
     private BatteryManager mBatteryManager = null;
     private int mLastBatteryLevel = -1;
-    // Maximum number of devices we can try connecting to in one session
-    private static final int MAX_STATE_MACHINES_POSSIBLE = 100;
+
+    private final int mMaxAmVcVol;
+    private final int mMinAmVcVol;
 
     private final Object mStartStopLock = new Object();
 
@@ -93,6 +101,8 @@ public class HeadsetClientService extends ProfileService {
         mAdapterService = adapterService;
         mDatabaseManager = requireNonNull(adapterService.getDatabase());
         mAudioManager = requireNonNull(getSystemService(AudioManager.class));
+        mMaxAmVcVol = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+        mMinAmVcVol = mAudioManager.getStreamMinVolume(AudioManager.STREAM_VOICE_CALL);
     }
 
     public static boolean isEnabled() {
@@ -188,6 +198,42 @@ public class HeadsetClientService extends ProfileService {
         }
     }
 
+    int hfToAmVol(int hfVol) {
+        int amRange = mMaxAmVcVol - mMinAmVcVol;
+        int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
+        int amVol = 0;
+        if (Flags.headsetClientAmHfVolumeSymmetric()) {
+            amVol =
+                    (int)
+                                    Math.round(
+                                            (hfVol - MIN_HFP_SCO_VOICE_CALL_VOLUME)
+                                                    * ((double) amRange / hfRange))
+                            + mMinAmVcVol;
+        } else {
+            int amOffset = (amRange * (hfVol - MIN_HFP_SCO_VOICE_CALL_VOLUME)) / hfRange;
+            amVol = mMinAmVcVol + amOffset;
+        }
+        Log.d(TAG, "HF -> AM " + hfVol + " " + amVol);
+        return amVol;
+    }
+
+    @VisibleForTesting
+    int amToHfVol(int amVol) {
+        int amRange = (mMaxAmVcVol > mMinAmVcVol) ? (mMaxAmVcVol - mMinAmVcVol) : 1;
+        int hfRange = MAX_HFP_SCO_VOICE_CALL_VOLUME - MIN_HFP_SCO_VOICE_CALL_VOLUME;
+        int hfVol = 0;
+        if (Flags.headsetClientAmHfVolumeSymmetric()) {
+            hfVol =
+                    (int) Math.round((amVol - mMinAmVcVol) * ((double) hfRange / amRange))
+                            + MIN_HFP_SCO_VOICE_CALL_VOLUME;
+        } else {
+            int hfOffset = (hfRange * (amVol - mMinAmVcVol)) / amRange;
+            hfVol = MIN_HFP_SCO_VOICE_CALL_VOLUME + hfOffset;
+        }
+        Log.d(TAG, "AM -> HF " + amVol + " " + hfVol);
+        return hfVol;
+    }
+
     private final BroadcastReceiver mBroadcastReceiver =
             new BroadcastReceiver() {
                 @Override
@@ -210,7 +256,7 @@ public class HeadsetClientService extends ProfileService {
                         if (streamType == AudioManager.STREAM_VOICE_CALL) {
                             int streamValue =
                                     intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1);
-                            int hfVol = HeadsetClientStateMachine.amToHfVol(streamValue);
+                            int hfVol = amToHfVol(streamValue);
                             Log.d(
                                     TAG,
                                     "Setting volume to audio manager: "

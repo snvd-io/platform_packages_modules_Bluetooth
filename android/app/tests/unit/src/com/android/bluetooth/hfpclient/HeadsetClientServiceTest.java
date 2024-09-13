@@ -18,6 +18,9 @@ package com.android.bluetooth.hfpclient;
 
 import static android.content.pm.PackageManager.FEATURE_WATCH;
 
+import static com.android.bluetooth.hfpclient.HeadsetClientService.MAX_HFP_SCO_VOICE_CALL_VOLUME;
+import static com.android.bluetooth.hfpclient.HeadsetClientService.MIN_HFP_SCO_VOICE_CALL_VOLUME;
+
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -34,6 +37,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.BatteryManager;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -42,6 +47,7 @@ import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.RemoteDevices;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
+import com.android.bluetooth.flags.Flags;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -55,6 +61,8 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @MediumTest
@@ -67,6 +75,8 @@ public class HeadsetClientServiceTest {
     private static final int SERVICE_START_WAIT_MILLIS = 100;
 
     @Rule public MockitoRule mockitoRule = MockitoJUnit.rule();
+
+    @Rule public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Mock private AdapterService mAdapterService;
     private AudioManager mMockAudioManager;
@@ -193,6 +203,66 @@ public class HeadsetClientServiceTest {
         verify(mAdapterService, never()).startService(any(Intent.class));
 
         service.stop();
+    }
+
+    /**
+     * Test AM to HF volume symmetric. The test takes the AM volume range 1-10 and HF 1-15. All the
+     * AM values are mapped with corresponding HF values. After all collected, the test converts
+     * back HF values and checks if they match AM. This proves that the conversion is symmetric.
+     */
+    @Test
+    @EnableFlags(Flags.FLAG_HEADSET_CLIENT_AM_HF_VOLUME_SYMMETRIC)
+    public void testAmHfVolumeSymmetric_AmLowerRange() {
+        int amMin = 1;
+        int amMax = 10;
+        Map<Integer, Integer> amToHfMap = new HashMap<>();
+
+        Assert.assertTrue(amMax < MAX_HFP_SCO_VOICE_CALL_VOLUME);
+
+        doReturn(amMax).when(mMockAudioManager).getStreamMaxVolume(anyInt());
+        doReturn(amMin).when(mMockAudioManager).getStreamMinVolume(anyInt());
+
+        HeadsetClientService service = new HeadsetClientService(mAdapterService);
+
+        for (int i = amMin; i <= amMax; i++) {
+            // Collect AM to HF conversion
+            amToHfMap.put(i, service.amToHfVol(i));
+        }
+
+        for (Map.Entry entry : amToHfMap.entrySet()) {
+            // Convert back from collected HF to AM and check if equal the saved AM value
+            Assert.assertEquals(service.hfToAmVol((int) entry.getValue()), entry.getKey());
+        }
+    }
+
+    /**
+     * Test HF to AM volume symmetric. The test takes the AM volume range 1-20 and HF 1-15. All the
+     * HF values are mapped with corresponding AM values. After all collected, the test converts
+     * back AM values and checks if they match HF. This proves that the conversion is symmetric.
+     */
+    @Test
+    @EnableFlags(Flags.FLAG_HEADSET_CLIENT_AM_HF_VOLUME_SYMMETRIC)
+    public void testAmHfVolumeSymmetric_HfLowerRange() {
+        int amMin = 1;
+        int amMax = 20;
+        Map<Integer, Integer> hfToAmMap = new HashMap<>();
+
+        Assert.assertTrue(amMax > MAX_HFP_SCO_VOICE_CALL_VOLUME);
+
+        doReturn(amMax).when(mMockAudioManager).getStreamMaxVolume(anyInt());
+        doReturn(amMin).when(mMockAudioManager).getStreamMinVolume(anyInt());
+
+        HeadsetClientService service = new HeadsetClientService(mAdapterService);
+
+        for (int i = MIN_HFP_SCO_VOICE_CALL_VOLUME; i <= MAX_HFP_SCO_VOICE_CALL_VOLUME; i++) {
+            // Collect HF to AM conversion
+            hfToAmMap.put(i, service.hfToAmVol(i));
+        }
+
+        for (Map.Entry entry : hfToAmMap.entrySet()) {
+            // Convert back from collected AM to HF and check if equal the saved HF value
+            Assert.assertEquals(service.amToHfVol((int) entry.getValue()), entry.getKey());
+        }
     }
 
     private void startService() throws Exception {
