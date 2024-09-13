@@ -192,7 +192,7 @@ void bta_gattc_register(const Uuid& app_uuid, tBTA_GATTC_CBACK* p_cback, BtaAppR
   }
 
   if (com::android::bluetooth::flags::gatt_client_dynamic_allocation()) {
-    tGATT_IF client_if = GATT_Register(app_uuid, "GattClient", &bta_gattc_cl_cback, eatt_support);
+    client_if = GATT_Register(app_uuid, "GattClient", &bta_gattc_cl_cback, eatt_support);
     if (client_if == 0) {
       log::error("Register with GATT stack failed");
       status = GATT_ERROR;
