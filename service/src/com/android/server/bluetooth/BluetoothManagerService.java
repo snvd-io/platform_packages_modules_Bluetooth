@@ -1323,7 +1323,7 @@ class BluetoothManagerService {
         AdapterBinder adapter = mAdapter;
         if (adapter != null) {
             try {
-                return mAdapter.getAddress(mContext.getAttributionSource());
+                return adapter.getAddress(mContext.getAttributionSource());
             } catch (RemoteException e) {
                 Log.e(TAG, "getAddress(): Returning cached address", e);
             }
@@ -1341,7 +1341,7 @@ class BluetoothManagerService {
         AdapterBinder adapter = mAdapter;
         if (adapter != null) {
             try {
-                return mAdapter.getName(mContext.getAttributionSource());
+                return adapter.getName(mContext.getAttributionSource());
             } catch (RemoteException e) {
                 Log.e(TAG, "getName(): Returning cached name", e);
             }
