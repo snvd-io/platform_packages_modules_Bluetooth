@@ -519,7 +519,7 @@ public class BluetoothMapService extends ProfileService {
         return mState;
     }
 
-    public static BluetoothDevice getRemoteDevice() {
+    public BluetoothDevice getRemoteDevice() {
         return sRemoteDevice;
     }
 
@@ -1307,7 +1307,7 @@ public class BluetoothMapService extends ProfileService {
                     Log.v(TAG, "getClient() - no service - returning " + null);
                     return null;
                 }
-                BluetoothDevice client = BluetoothMapService.getRemoteDevice();
+                BluetoothDevice client = service.getRemoteDevice();
                 Log.v(TAG, "getClient() - returning " + client);
                 return client;
             } catch (RuntimeException e) {
