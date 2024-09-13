@@ -134,6 +134,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     private final AudioOn mAudioOn;
     private State mPrevState;
 
+    private final AdapterService mAdapterService;
     private final HeadsetClientService mService;
     private final HeadsetService mHeadsetService;
 
@@ -878,11 +879,13 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     HeadsetClientStateMachine(
+            AdapterService adapterService,
             HeadsetClientService context,
             HeadsetService headsetService,
             Looper looper,
             NativeInterface nativeInterface) {
         super(TAG, looper);
+        mAdapterService = requireNonNull(adapterService);
         mService = requireNonNull(context);
         mNativeInterface = nativeInterface;
         mAudioManager = mService.getAudioManager();
@@ -949,6 +952,7 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     static HeadsetClientStateMachine make(
+            AdapterService adapterService,
             HeadsetClientService context,
             HeadsetService headsetService,
             Looper looper,
@@ -956,17 +960,12 @@ public class HeadsetClientStateMachine extends StateMachine {
         Log.d(TAG, "make");
         HeadsetClientStateMachine hfcsm =
                 new HeadsetClientStateMachine(
-                        context, headsetService,
-                        looper, nativeInterface);
+                        adapterService, context, headsetService, looper, nativeInterface);
         hfcsm.start();
         return hfcsm;
     }
 
     synchronized void routeHfpAudio(boolean enable) {
-        if (mAudioManager == null) {
-            error("AudioManager is null!");
-            return;
-        }
         debug("hfp_enable=" + enable);
         if (enable && !sAudioIsRouted) {
             mAudioManager.setHfpEnabled(true);
@@ -1162,7 +1161,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                                 "Incoming AG rejected. connectionPolicy="
                                         + mService.getConnectionPolicy(device)
                                         + " bondState="
-                                        + AdapterService.getAdapterService().getBondState(device));
+                                        + mAdapterService.getBondState(device));
                         // reject the connection and stay in Disconnected state
                         // itself
                         mNativeInterface.disconnect(device);
@@ -2125,10 +2124,10 @@ public class HeadsetClientStateMachine extends StateMachine {
 
         BluetoothStatsLog.write(
                 BluetoothStatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
-                AdapterService.getAdapterService().obfuscateAddress(device),
+                mAdapterService.obfuscateAddress(device),
                 getConnectionStateFromAudioState(newState),
                 sco_codec,
-                AdapterService.getAdapterService().getMetricId(device));
+                mAdapterService.getMetricId(device));
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_AUDIO_STATE_CHANGED);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
@@ -2266,15 +2265,14 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         List<BluetoothDevice> deviceList = new ArrayList<BluetoothDevice>();
-        AdapterService adapterService = AdapterService.getAdapterService();
-        final BluetoothDevice[] bondedDevices = adapterService.getBondedDevices();
+        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
         if (bondedDevices == null) {
             return deviceList;
         }
         int connectionState;
         synchronized (this) {
             for (BluetoothDevice device : bondedDevices) {
-                final ParcelUuid[] featureUuids = adapterService.getRemoteUuids(device);
+                final ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
                 if (!Utils.arrayContains(featureUuids, BluetoothUuid.HFP_AG)) {
                     continue;
                 }
@@ -2299,8 +2297,7 @@ public class HeadsetClientStateMachine extends StateMachine {
         // connection. Allow this connection, provided the device is bonded
         if ((BluetoothProfile.CONNECTION_POLICY_FORBIDDEN < connectionPolicy)
                 || ((BluetoothProfile.CONNECTION_POLICY_UNKNOWN == connectionPolicy)
-                        && (AdapterService.getAdapterService().getBondState(device)
-                                != BluetoothDevice.BOND_NONE))) {
+                        && (mAdapterService.getBondState(device) != BluetoothDevice.BOND_NONE))) {
             ret = true;
         }
         return ret;

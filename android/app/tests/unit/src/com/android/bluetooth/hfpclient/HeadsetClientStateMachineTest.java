@@ -129,7 +129,6 @@ public class HeadsetClientStateMachineTest {
         when(mMockHfpResources.getInteger(R.integer.hfp_clcc_poll_interval_during_call))
                 .thenReturn(2000);
 
-        TestUtils.setAdapterService(mAdapterService);
         doReturn(mRemoteDevices).when(mAdapterService).getRemoteDevices();
         doReturn(true).when(mNativeInterface).sendAndroidAt(anyObject(), anyString());
 
@@ -144,6 +143,7 @@ public class HeadsetClientStateMachineTest {
         // Manage looper execution in main test thread explicitly to guarantee timing consistency
         mHeadsetClientStateMachine =
                 new TestHeadsetClientStateMachine(
+                        mAdapterService,
                         mHeadsetClientService,
                         mHeadsetService,
                         mHandlerThread.getLooper(),
@@ -159,7 +159,6 @@ public class HeadsetClientStateMachineTest {
         mHeadsetClientStateMachine.doQuit();
         TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
         mHandlerThread.quit();
-        TestUtils.clearAdapterService(mAdapterService);
         verifyNoMoreInteractions(mHeadsetService);
     }
 
@@ -177,6 +176,7 @@ public class HeadsetClientStateMachineTest {
         if (mHeadsetClientStateMachine == null) {
             mHeadsetClientStateMachine =
                     new TestHeadsetClientStateMachine(
+                            mAdapterService,
                             mHeadsetClientService,
                             mHeadsetService,
                             mHandlerThread.getLooper(),
@@ -725,7 +725,7 @@ public class HeadsetClientStateMachineTest {
             mHeadsetClientStateMachine.sendMessage(StackEvent.STACK_EVENT, unknownEvt);
             TestUtils.waitForLooperToFinishScheduledTask(mHandlerThread.getLooper());
 
-            // receive CMD_RESULT OK after the Anroid AT command from remote
+            // receive CMD_RESULT OK after the Android AT command from remote
             StackEvent cmdResEvt = new StackEvent(StackEvent.EVENT_TYPE_CMD_RESULT);
             cmdResEvt.valueInt = StackEvent.CMD_RESULT_TYPE_OK;
             cmdResEvt.device = mTestDevice;
@@ -1837,11 +1837,12 @@ public class HeadsetClientStateMachineTest {
         boolean mForceSetAudioPolicyProperty = false;
 
         TestHeadsetClientStateMachine(
+                AdapterService adapterService,
                 HeadsetClientService context,
                 HeadsetService headsetService,
                 Looper looper,
                 NativeInterface nativeInterface) {
-            super(context, headsetService, looper, nativeInterface);
+            super(adapterService, context, headsetService, looper, nativeInterface);
         }
 
         public boolean doesSuperHaveDeferredMessages(int what) {

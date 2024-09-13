@@ -20,6 +20,8 @@ import static android.Manifest.permission.BLUETOOTH_CONNECT;
 import static android.Manifest.permission.BLUETOOTH_PRIVILEGED;
 import static android.content.pm.PackageManager.FEATURE_WATCH;
 
+import static java.util.Objects.requireNonNull;
+
 import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
@@ -74,8 +76,9 @@ public class HeadsetClientService extends ProfileService {
     private NativeInterface mNativeInterface = null;
     private HandlerThread mSmThread = null;
     private HeadsetClientStateMachineFactory mSmFactory = null;
-    private DatabaseManager mDatabaseManager;
-    private AudioManager mAudioManager = null;
+    private final AdapterService mAdapterService;
+    private final DatabaseManager mDatabaseManager;
+    private final AudioManager mAudioManager;
     private BatteryManager mBatteryManager = null;
     private int mLastBatteryLevel = -1;
     // Maximum number of devices we can try connecting to in one session
@@ -85,8 +88,11 @@ public class HeadsetClientService extends ProfileService {
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
-    public HeadsetClientService(Context ctx) {
-        super(ctx);
+    public HeadsetClientService(AdapterService adapterService) {
+        super(requireNonNull(adapterService));
+        mAdapterService = adapterService;
+        mDatabaseManager = requireNonNull(adapterService.getDatabase());
+        mAudioManager = requireNonNull(getSystemService(AudioManager.class));
     }
 
     public static boolean isEnabled() {
@@ -106,24 +112,14 @@ public class HeadsetClientService extends ProfileService {
                 throw new IllegalStateException("start() called twice");
             }
 
-            mDatabaseManager =
-                    Objects.requireNonNull(
-                            AdapterService.getAdapterService().getDatabase(),
-                            "DatabaseManager cannot be null when HeadsetClientService starts");
-
             // Setup the JNI service
             mNativeInterface = NativeInterface.getInstance();
             mNativeInterface.initialize();
 
             mBatteryManager = getSystemService(BatteryManager.class);
 
-            mAudioManager = getSystemService(AudioManager.class);
-            if (mAudioManager == null) {
-                Log.e(TAG, "AudioManager service doesn't exist?");
-            } else {
-                // start AudioManager in a known state
-                mAudioManager.setHfpEnabled(false);
-            }
+            // start AudioManager in a known state
+            mAudioManager.setHfpEnabled(false);
 
             mSmFactory = new HeadsetClientStateMachineFactory();
             synchronized (mStateMachineMap) {
@@ -1265,7 +1261,7 @@ public class HeadsetClientService extends ProfileService {
 
             // Allocate a new SM
             Log.d(TAG, "Creating a new state machine");
-            sm = mSmFactory.make(this, mSmThread, mNativeInterface);
+            sm = mSmFactory.make(mAdapterService, this, mSmThread, mNativeInterface);
             mStateMachineMap.put(device, sm);
             return sm;
         }
@@ -1295,9 +1291,7 @@ public class HeadsetClientService extends ProfileService {
     }
 
     void handleBatteryLevelChanged(BluetoothDevice device, int batteryLevel) {
-        AdapterService.getAdapterService()
-                .getRemoteDevices()
-                .handleAgBatteryLevelChanged(device, batteryLevel);
+        mAdapterService.getRemoteDevices().handleAgBatteryLevelChanged(device, batteryLevel);
     }
 
     @Override
