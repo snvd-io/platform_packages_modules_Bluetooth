@@ -309,6 +309,7 @@ bool a2dp_get_selected_hal_codec_config(A2dpCodecConfig* a2dp_config, uint16_t p
 }
 
 static bool a2dp_get_selected_hal_pcm_config(A2dpCodecConfig* a2dp_codec_configs,
+                                             int preferred_encoding_interval_us,
                                              PcmConfiguration* pcm_config) {
   if (pcm_config == nullptr) {
     return false;
@@ -320,7 +321,7 @@ static bool a2dp_get_selected_hal_pcm_config(A2dpCodecConfig* a2dp_codec_configs
   pcm_config->channelMode = A2dpCodecToHalChannelMode(current_codec);
 
   if (com::android::bluetooth::flags::a2dp_aidl_encoding_interval()) {
-    pcm_config->dataIntervalUs = bta_av_co_get_encoder_preferred_interval_us();
+    pcm_config->dataIntervalUs = preferred_encoding_interval_us;
   }
 
   return pcm_config->sampleRateHz > 0 && pcm_config->bitsPerSample > 0 &&
@@ -457,7 +458,8 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu) {
+bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu,
+                 int preferred_encoding_interval_us) {
   log::assert_that(a2dp_config != nullptr, "received invalid codec configuration");
 
   if (!is_hal_enabled()) {
@@ -531,7 +533,8 @@ bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu) {
     audio_config.set<AudioConfiguration::a2dpConfig>(codec_config);
   } else {
     PcmConfiguration pcm_config{};
-    if (!a2dp_get_selected_hal_pcm_config(a2dp_config, &pcm_config)) {
+    if (!a2dp_get_selected_hal_pcm_config(a2dp_config, preferred_encoding_interval_us,
+                                          &pcm_config)) {
       log::error("Failed to get PcmConfiguration");
       return false;
     }
