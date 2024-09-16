@@ -96,7 +96,7 @@ void A2dpEncodingFuzzer::process(const uint8_t* data, size_t size) {
     return;
   }
 
-  if (!bluetooth::audio::a2dp::setup_codec()) {
+  if (!bluetooth::audio::a2dp::setup_codec(bta_av_get_a2dp_current_codec())) {
     return;
   }
 
