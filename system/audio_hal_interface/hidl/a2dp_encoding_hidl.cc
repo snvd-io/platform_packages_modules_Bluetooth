@@ -407,7 +407,8 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu) {
+bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu,
+                 int /*preferred_encoding_interval_us*/) {
   log::assert_that(a2dp_config != nullptr, "received invalid codec configuration");
 
   if (!is_hal_2_0_enabled()) {
