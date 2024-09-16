@@ -244,13 +244,8 @@ static BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(BluetoothAudioStatus 
   }
 }
 
-bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
-  A2dpCodecConfig* a2dp_config = bta_av_get_a2dp_current_codec();
-  if (a2dp_config == nullptr) {
-    log::warn("failure to get A2DP codec config");
-    *codec_config = ::bluetooth::audio::hidl::codec::kInvalidCodecConfiguration;
-    return false;
-  }
+static bool a2dp_get_selected_hal_codec_config(A2dpCodecConfig* a2dp_config,
+                                               CodecConfiguration* codec_config) {
   btav_a2dp_codec_config_t current_codec = a2dp_config->getCodecConfig();
   switch (current_codec.codec_type) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
@@ -311,14 +306,9 @@ bool a2dp_get_selected_hal_codec_config(CodecConfiguration* codec_config) {
   return true;
 }
 
-bool a2dp_get_selected_hal_pcm_config(PcmParameters* pcm_config) {
+static bool a2dp_get_selected_hal_pcm_config(A2dpCodecConfig* a2dp_codec_configs,
+                                             PcmParameters* pcm_config) {
   if (pcm_config == nullptr) {
-    return false;
-  }
-  A2dpCodecConfig* a2dp_codec_configs = bta_av_get_a2dp_current_codec();
-  if (a2dp_codec_configs == nullptr) {
-    log::warn("failure to get A2DP codec config");
-    *pcm_config = BluetoothAudioSinkClientInterface::kInvalidPcmConfiguration;
     return false;
   }
 
@@ -432,13 +422,15 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec() {
+bool setup_codec(A2dpCodecConfig* a2dp_config) {
+  log::assert_that(a2dp_config != nullptr, "received invalid codec configuration");
+
   if (!is_hal_2_0_enabled()) {
     log::error("BluetoothAudio HAL is not enabled");
     return false;
   }
   CodecConfiguration codec_config{};
-  if (!a2dp_get_selected_hal_codec_config(&codec_config)) {
+  if (!a2dp_get_selected_hal_codec_config(a2dp_config, &codec_config)) {
     log::error("Failed to get CodecConfiguration");
     return false;
   }
@@ -460,7 +452,7 @@ bool setup_codec() {
     audio_config.codecConfig(codec_config);
   } else {
     PcmParameters pcm_config{};
-    if (!a2dp_get_selected_hal_pcm_config(&pcm_config)) {
+    if (!a2dp_get_selected_hal_pcm_config(a2dp_config, &pcm_config)) {
       log::error("Failed to get PcmConfiguration");
       return false;
     }

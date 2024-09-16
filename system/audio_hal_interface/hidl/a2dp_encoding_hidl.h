@@ -43,7 +43,7 @@ bool init(bluetooth::common::MessageLoopThread* message_loop);
 void cleanup();
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec();
+bool setup_codec(A2dpCodecConfig* a2dp_config);
 
 // Send command to the BluetoothAudio HAL: StartSession, EndSession,
 // StreamStarted, StreamSuspended
