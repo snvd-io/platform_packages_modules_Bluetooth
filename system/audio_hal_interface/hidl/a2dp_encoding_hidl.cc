@@ -244,7 +244,7 @@ static BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(BluetoothAudioStatus 
   }
 }
 
-static bool a2dp_get_selected_hal_codec_config(A2dpCodecConfig* a2dp_config,
+static bool a2dp_get_selected_hal_codec_config(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu,
                                                CodecConfiguration* codec_config) {
   btav_a2dp_codec_config_t current_codec = a2dp_config->getCodecConfig();
   switch (current_codec.codec_type) {
@@ -286,22 +286,7 @@ static bool a2dp_get_selected_hal_codec_config(A2dpCodecConfig* a2dp_config,
       return false;
   }
   codec_config->encodedAudioBitrate = a2dp_config->getTrackBitRate();
-  // Obtain the MTU
-  RawAddress peer_addr = btif_av_source_active_peer();
-  tA2DP_ENCODER_INIT_PEER_PARAMS peer_param;
-  bta_av_co_get_peer_params(peer_addr, &peer_param);
-  int effectiveMtu = bta_av_co_get_encoder_effective_frame_size(peer_addr);
-  if (effectiveMtu > 0 && effectiveMtu < peer_param.peer_mtu) {
-    codec_config->peerMtu = effectiveMtu;
-  } else {
-    codec_config->peerMtu = peer_param.peer_mtu;
-  }
-  if (current_codec.codec_type == BTAV_A2DP_CODEC_INDEX_SOURCE_SBC &&
-      codec_config->config.sbcConfig().maxBitpool <= A2DP_SBC_BITPOOL_MIDDLE_QUALITY) {
-    codec_config->peerMtu = MAX_2MBPS_AVDTP_MTU;
-  } else if (codec_config->peerMtu > MAX_3MBPS_AVDTP_MTU) {
-    codec_config->peerMtu = MAX_3MBPS_AVDTP_MTU;
-  }
+  codec_config->peerMtu = peer_mtu;
   log::info("CodecConfiguration={}", toString(*codec_config));
   return true;
 }
@@ -422,7 +407,7 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec(A2dpCodecConfig* a2dp_config) {
+bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu) {
   log::assert_that(a2dp_config != nullptr, "received invalid codec configuration");
 
   if (!is_hal_2_0_enabled()) {
@@ -430,7 +415,7 @@ bool setup_codec(A2dpCodecConfig* a2dp_config) {
     return false;
   }
   CodecConfiguration codec_config{};
-  if (!a2dp_get_selected_hal_codec_config(a2dp_config, &codec_config)) {
+  if (!a2dp_get_selected_hal_codec_config(a2dp_config, peer_mtu, &codec_config)) {
     log::error("Failed to get CodecConfiguration");
     return false;
   }

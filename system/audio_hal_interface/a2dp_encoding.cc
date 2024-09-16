@@ -70,11 +70,11 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec(A2dpCodecConfig* a2dp_config) {
+bool setup_codec(A2dpCodecConfig* a2dp_config, uint16_t peer_mtu) {
   if (HalVersionManager::GetHalTransport() == BluetoothAudioHalTransport::HIDL) {
-    return hidl::a2dp::setup_codec(a2dp_config);
+    return hidl::a2dp::setup_codec(a2dp_config, peer_mtu);
   }
-  return aidl::a2dp::setup_codec(a2dp_config);
+  return aidl::a2dp::setup_codec(a2dp_config, peer_mtu);
 }
 
 // Send command to the BluetoothAudio HAL: StartSession, EndSession,

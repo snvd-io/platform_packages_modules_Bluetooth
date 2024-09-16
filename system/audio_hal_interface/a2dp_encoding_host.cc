@@ -248,7 +248,7 @@ void cleanup() {
 }
 
 // Set up the codec into BluetoothAudio HAL
-bool setup_codec(A2dpCodecConfig* /*a2dp_config*/) {
+bool setup_codec(A2dpCodecConfig* /*a2dp_config*/, uint16_t /*peer_mtu*/) {
   // TODO: setup codec
   return true;
 }
