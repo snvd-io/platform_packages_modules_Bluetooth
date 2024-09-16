@@ -671,6 +671,12 @@ void btif_update_remote_properties(const RawAddress& bdaddr, BD_NAME bd_name, DE
     cod = old_cod;
   }
 
+  if (cod == 0) {
+    /* Spec says UNCLASSIFIED is default value */
+    log::info("CoD from storage was zero");
+    cod = COD_UNCLASSIFIED;
+  }
+
   if (old_cod != cod) {
     log::info("{} CoD: 0x{:06x} -> 0x{:06x}", bdaddr, old_cod, cod);
   }
