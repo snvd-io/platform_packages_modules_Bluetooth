@@ -587,7 +587,8 @@ static void btif_a2dp_source_setup_codec_delayed(const RawAddress& peer_address)
 
   if (bluetooth::audio::a2dp::is_hal_enabled()) {
     bluetooth::audio::a2dp::setup_codec(a2dp_codec_config,
-                                        btif_a2dp_get_peer_mtu(a2dp_codec_config));
+                                        btif_a2dp_get_peer_mtu(a2dp_codec_config),
+                                        bta_av_co_get_encoder_preferred_interval_us());
   }
 }
 

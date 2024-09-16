@@ -86,6 +86,8 @@ void A2dpEncodingFuzzer::process(const uint8_t* data, size_t size) {
 
   std::string name = fdp.ConsumeRandomLengthString(kRandomStringLength);
   uint16_t peer_mtu = fdp.ConsumeIntegral<uint16_t>();
+  int preferred_encoding_interval_us = fdp.ConsumeIntegral<int>();
+
   bluetooth::common::MessageLoopThread messageLoopThread(name);
   messageLoopThread.StartUp();
   messageLoopThread.DoInThread(FROM_HERE, base::BindOnce(&source_init_delayed));
@@ -97,7 +99,8 @@ void A2dpEncodingFuzzer::process(const uint8_t* data, size_t size) {
     return;
   }
 
-  if (!bluetooth::audio::a2dp::setup_codec(bta_av_get_a2dp_current_codec(), peer_mtu)) {
+  if (!bluetooth::audio::a2dp::setup_codec(bta_av_get_a2dp_current_codec(), peer_mtu,
+                                           preferred_encoding_interval_us)) {
     return;
   }
 
