@@ -25,6 +25,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothProfile;
 import android.os.Handler;
 import android.os.Looper;
+import android.telephony.TelephonyManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
@@ -74,6 +75,7 @@ public class ProfileServiceTest {
     @Rule public MockitoRule mockitoRule = MockitoJUnit.rule();
 
     @Mock private DatabaseManager mDatabaseManager;
+    @Mock private TelephonyManager mMockTelephonyManager;
 
     private int[] mProfiles;
 
@@ -137,6 +139,12 @@ public class ProfileServiceTest {
         doReturn(42).when(mAdapterService).getMaxConnectedAudioDevices();
         doReturn(false).when(mAdapterService).isA2dpOffloadEnabled();
         doReturn(false).when(mAdapterService).pbapPseDynamicVersionUpgradeIsEnabled();
+
+        TestUtils.mockGetSystemService(
+                mAdapterService,
+                "Context.TELEPHONY_SERVICE",
+                TelephonyManager.class,
+                mMockTelephonyManager);
 
         mProfiles =
                 Arrays.stream(Config.getSupportedProfiles())
