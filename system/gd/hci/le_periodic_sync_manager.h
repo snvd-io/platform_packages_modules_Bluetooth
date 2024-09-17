@@ -203,9 +203,6 @@ public:
 
   template <class View>
   void HandlePeriodicAdvertisingCreateSyncStatus(CommandStatusView view) {
-    if (!com::android::bluetooth::flags::leaudio_broadcast_assistant_handle_command_statuses()) {
-      return;
-    }
     log::assert_that(view.IsValid(), "assert failed: view.IsValid()");
     auto status_view = View::Create(view);
     log::assert_that(status_view.IsValid(), "assert failed: status_view.IsValid()");
@@ -238,9 +235,6 @@ public:
 
   template <class View>
   void HandlePeriodicAdvertisingCreateSyncCancelStatus(CommandCompleteView view) {
-    if (!com::android::bluetooth::flags::leaudio_broadcast_assistant_handle_command_statuses()) {
-      return;
-    }
     log::assert_that(view.IsValid(), "assert failed: view.IsValid()");
     auto status_view = View::Create(view);
     log::assert_that(status_view.IsValid(), "assert failed: status_view.IsValid()");
