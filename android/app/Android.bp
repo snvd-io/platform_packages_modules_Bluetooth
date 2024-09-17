@@ -338,6 +338,7 @@ android_app {
             "-Xep:EmptyBlockTag:ERROR",
             "-Xep:EmptyCatch:ERROR",
             "-Xep:EqualsGetClass:ERROR",
+            "-Xep:EqualsHashCode:ERROR",
             "-Xep:FallThrough:ERROR",
             "-Xep:Finalize:ERROR",
             "-Xep:HidingField:ERROR",
