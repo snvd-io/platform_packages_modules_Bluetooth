@@ -391,7 +391,7 @@ void SourceImpl::ConfirmStreamingRequest() {
   }
 
   log::info("");
-  halSinkInterface_->ConfirmStreamingRequestV2();
+  halSinkInterface_->ConfirmStreamingRequest();
 
   if (CodecManager::GetInstance()->GetCodecLocation() != types::CodecLocation::HOST) {
     return;
@@ -432,7 +432,7 @@ void SourceImpl::CancelStreamingRequest() {
   }
 
   log::info("");
-  halSinkInterface_->CancelStreamingRequestV2();
+  halSinkInterface_->CancelStreamingRequest();
 }
 
 void SourceImpl::UpdateRemoteDelay(uint16_t remote_delay_ms) {

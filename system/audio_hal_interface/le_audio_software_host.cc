@@ -242,7 +242,7 @@ void LeAudioClientInterface::Sink::StopSession() {
   host::le_audio::LeAudioSinkTransport::stream_started = btle_stream_started_status::IDLE;
 }
 
-void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {
+void LeAudioClientInterface::Sink::ConfirmStreamingRequest() {
   if (!host::le_audio::LeAudioSinkTransport::instance) {
     log::warn("instance is null");
     return;
@@ -275,7 +275,7 @@ void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {
   }
 }
 
-void LeAudioClientInterface::Sink::CancelStreamingRequestV2() {
+void LeAudioClientInterface::Sink::CancelStreamingRequest() {
   if (!host::le_audio::LeAudioSinkTransport::instance) {
     log::warn("instance is null");
     return;
@@ -393,7 +393,7 @@ void LeAudioClientInterface::Source::StopSession() {
   host::le_audio::LeAudioSourceTransport::stream_started = btle_stream_started_status::IDLE;
 }
 
-void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {
+void LeAudioClientInterface::Source::ConfirmStreamingRequest() {
   if (!host::le_audio::LeAudioSourceTransport::instance) {
     log::warn("instance is null");
     return;
@@ -426,7 +426,7 @@ void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {
   }
 }
 
-void LeAudioClientInterface::Source::CancelStreamingRequestV2() {
+void LeAudioClientInterface::Source::CancelStreamingRequest() {
   if (!host::le_audio::LeAudioSourceTransport::instance) {
     log::warn("instance is null");
     return;

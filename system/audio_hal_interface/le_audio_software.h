@@ -94,8 +94,8 @@ private:
     virtual void SetRemoteDelay(uint16_t delay_report_ms) = 0;
     virtual void StartSession() = 0;
     virtual void StopSession() = 0;
-    virtual void ConfirmStreamingRequestV2() = 0;
-    virtual void CancelStreamingRequestV2() = 0;
+    virtual void ConfirmStreamingRequest() = 0;
+    virtual void CancelStreamingRequest() = 0;
     virtual void UpdateAudioConfigToHal(const ::bluetooth::le_audio::offload_config& config) = 0;
     virtual void SuspendedForReconfiguration() = 0;
     virtual void ReconfigurationComplete() = 0;
@@ -112,8 +112,8 @@ public:
     void SetRemoteDelay(uint16_t delay_report_ms) override;
     void StartSession() override;
     void StopSession() override;
-    void ConfirmStreamingRequestV2() override;
-    void CancelStreamingRequestV2() override;
+    void ConfirmStreamingRequest() override;
+    void CancelStreamingRequest() override;
     void UpdateAudioConfigToHal(const ::bluetooth::le_audio::offload_config& config) override;
     void UpdateBroadcastAudioConfigToHal(
             const ::bluetooth::le_audio::broadcast_offload_config& config);
@@ -143,8 +143,8 @@ public:
     void SetRemoteDelay(uint16_t delay_report_ms) override;
     void StartSession() override;
     void StopSession() override;
-    void ConfirmStreamingRequestV2() override;
-    void CancelStreamingRequestV2() override;
+    void ConfirmStreamingRequest() override;
+    void CancelStreamingRequest() override;
     void UpdateAudioConfigToHal(const ::bluetooth::le_audio::offload_config& config) override;
     void SuspendedForReconfiguration() override;
     void ReconfigurationComplete() override;

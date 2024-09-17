@@ -70,7 +70,7 @@ public:
   LeAudioTransport(void (*flush)(void), StreamCallbacks stream_cb, PcmConfiguration pcm_config);
   ~LeAudioTransport();
 
-  BluetoothAudioCtrlAck StartRequestV2(bool is_low_latency);
+  BluetoothAudioCtrlAck StartRequest(bool is_low_latency);
 
   BluetoothAudioCtrlAck SuspendRequest();
 

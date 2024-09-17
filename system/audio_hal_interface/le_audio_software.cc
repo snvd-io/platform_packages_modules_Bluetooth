@@ -199,7 +199,7 @@ void LeAudioClientInterface::Sink::StartSession() {
   }
 }
 
-void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {
+void LeAudioClientInterface::Sink::ConfirmStreamingRequest() {
   auto lambda =
           [&](StartRequestState currect_start_request_state) -> std::pair<StartRequestState, bool> {
     switch (currect_start_request_state) {
@@ -236,7 +236,7 @@ void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {
   }
 }
 
-void LeAudioClientInterface::Sink::CancelStreamingRequestV2() {
+void LeAudioClientInterface::Sink::CancelStreamingRequest() {
   auto lambda =
           [&](StartRequestState currect_start_request_state) -> std::pair<StartRequestState, bool> {
     switch (currect_start_request_state) {
@@ -499,7 +499,7 @@ void LeAudioClientInterface::Source::ReconfigurationComplete() {
   }
 }
 
-void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {
+void LeAudioClientInterface::Source::ConfirmStreamingRequest() {
   auto lambda =
           [&](StartRequestState currect_start_request_state) -> std::pair<StartRequestState, bool> {
     switch (currect_start_request_state) {
@@ -536,7 +536,7 @@ void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {
   }
 }
 
-void LeAudioClientInterface::Source::CancelStreamingRequestV2() {
+void LeAudioClientInterface::Source::CancelStreamingRequest() {
   auto lambda =
           [&](StartRequestState currect_start_request_state) -> std::pair<StartRequestState, bool> {
     switch (currect_start_request_state) {

@@ -58,7 +58,7 @@ class LeAudioTransport {
 public:
   LeAudioTransport(void (*flush)(void), StreamCallbacks stream_cb, PcmParameters pcm_config);
 
-  BluetoothAudioCtrlAck StartRequestV2();
+  BluetoothAudioCtrlAck StartRequest();
 
   BluetoothAudioCtrlAck SuspendRequest();
 

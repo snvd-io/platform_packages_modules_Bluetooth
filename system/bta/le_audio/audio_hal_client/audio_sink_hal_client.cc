@@ -253,7 +253,7 @@ void SinkImpl::ConfirmStreamingRequest() {
     return;
   }
   log::info("");
-  halSourceInterface_->ConfirmStreamingRequestV2();
+  halSourceInterface_->ConfirmStreamingRequest();
 }
 
 void SinkImpl::SuspendedForReconfiguration() {
@@ -283,7 +283,7 @@ void SinkImpl::CancelStreamingRequest() {
   }
 
   log::info("");
-  halSourceInterface_->CancelStreamingRequestV2();
+  halSourceInterface_->CancelStreamingRequest();
 }
 
 void SinkImpl::UpdateRemoteDelay(uint16_t remote_delay_ms) {

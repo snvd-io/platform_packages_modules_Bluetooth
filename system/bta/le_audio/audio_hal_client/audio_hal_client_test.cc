@@ -95,8 +95,8 @@ public:
   MOCK_METHOD((void), SetRemoteDelay, (uint16_t delay_report_ms), (override));
   MOCK_METHOD((void), StartSession, (), (override));
   MOCK_METHOD((void), StopSession, (), (override));
-  MOCK_METHOD((void), ConfirmStreamingRequestV2, (), (override));
-  MOCK_METHOD((void), CancelStreamingRequestV2, (), (override));
+  MOCK_METHOD((void), ConfirmStreamingRequest, (), (override));
+  MOCK_METHOD((void), CancelStreamingRequest, (), (override));
   MOCK_METHOD((void), UpdateAudioConfigToHal, (const ::bluetooth::le_audio::offload_config&));
   MOCK_METHOD((std::optional<::le_audio::broadcaster::BroadcastConfiguration>), GetBroadcastConfig,
               ((const std::vector<std::pair<::le_audio::types::LeAudioContextType, uint8_t>>&),
@@ -119,8 +119,8 @@ public:
   MOCK_METHOD((void), SetRemoteDelay, (uint16_t delay_report_ms), (override));
   MOCK_METHOD((void), StartSession, (), (override));
   MOCK_METHOD((void), StopSession, (), (override));
-  MOCK_METHOD((void), ConfirmStreamingRequestV2, (), (override));
-  MOCK_METHOD((void), CancelStreamingRequestV2, (), (override));
+  MOCK_METHOD((void), ConfirmStreamingRequest, (), (override));
+  MOCK_METHOD((void), CancelStreamingRequest, (), (override));
   MOCK_METHOD((void), UpdateAudioConfigToHal, (const ::bluetooth::le_audio::offload_config&));
   MOCK_METHOD((size_t), Write, (const uint8_t* p_buf, uint32_t len));
 };
@@ -173,8 +173,8 @@ void LeAudioClientInterface::Sink::SetPcmParameters(const PcmParameters& params)
 void LeAudioClientInterface::Sink::SetRemoteDelay(uint16_t delay_report_ms) {}
 void LeAudioClientInterface::Sink::StartSession() {}
 void LeAudioClientInterface::Sink::StopSession() {}
-void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {}
-void LeAudioClientInterface::Sink::CancelStreamingRequestV2() {}
+void LeAudioClientInterface::Sink::ConfirmStreamingRequest() {}
+void LeAudioClientInterface::Sink::CancelStreamingRequest() {}
 void LeAudioClientInterface::Sink::UpdateAudioConfigToHal(
         const ::bluetooth::le_audio::offload_config& config) {}
 void LeAudioClientInterface::Sink::UpdateBroadcastAudioConfigToHal(
@@ -199,8 +199,8 @@ void LeAudioClientInterface::Source::SetPcmParameters(const PcmParameters& param
 void LeAudioClientInterface::Source::SetRemoteDelay(uint16_t delay_report_ms) {}
 void LeAudioClientInterface::Source::StartSession() {}
 void LeAudioClientInterface::Source::StopSession() {}
-void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {}
-void LeAudioClientInterface::Source::CancelStreamingRequestV2() {}
+void LeAudioClientInterface::Source::ConfirmStreamingRequest() {}
+void LeAudioClientInterface::Source::CancelStreamingRequest() {}
 void LeAudioClientInterface::Source::UpdateAudioConfigToHal(
         const ::bluetooth::le_audio::offload_config& config) {}
 void LeAudioClientInterface::Source::SuspendedForReconfiguration() {}

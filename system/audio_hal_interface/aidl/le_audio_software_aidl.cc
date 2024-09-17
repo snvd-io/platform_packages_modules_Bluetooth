@@ -80,7 +80,7 @@ LeAudioTransport::~LeAudioTransport() {
   }
 }
 
-BluetoothAudioCtrlAck LeAudioTransport::StartRequestV2(bool /*is_low_latency*/) {
+BluetoothAudioCtrlAck LeAudioTransport::StartRequest(bool /*is_low_latency*/) {
   // Check if operation is pending already
   if (GetStartRequestState() == StartRequestState::PENDING_AFTER_RESUME) {
     log::info("Start request is already pending. Ignore the request");
@@ -343,7 +343,7 @@ LeAudioSinkTransport::LeAudioSinkTransport(SessionType session_type, StreamCallb
 LeAudioSinkTransport::~LeAudioSinkTransport() { delete transport_; }
 
 BluetoothAudioCtrlAck LeAudioSinkTransport::StartRequest(bool is_low_latency) {
-  return transport_->StartRequestV2(is_low_latency);
+  return transport_->StartRequest(is_low_latency);
 }
 
 BluetoothAudioCtrlAck LeAudioSinkTransport::SuspendRequest() {
@@ -431,7 +431,7 @@ LeAudioSourceTransport::LeAudioSourceTransport(SessionType session_type, StreamC
 LeAudioSourceTransport::~LeAudioSourceTransport() { delete transport_; }
 
 BluetoothAudioCtrlAck LeAudioSourceTransport::StartRequest(bool is_low_latency) {
-  return transport_->StartRequestV2(is_low_latency);
+  return transport_->StartRequest(is_low_latency);
 }
 
 BluetoothAudioCtrlAck LeAudioSourceTransport::SuspendRequest() {
