@@ -212,8 +212,10 @@ public class VolumeControlService extends ProfileService {
         mVolumeControlNativeInterface = null;
         mAdapterService = null;
 
-        if (mCallbacks != null) {
-            mCallbacks.kill();
+        synchronized (mCallbacks) {
+            if (mCallbacks != null) {
+                mCallbacks.kill();
+            }
         }
     }
 
@@ -835,16 +837,21 @@ public class VolumeControlService extends ProfileService {
                 // notify group devices volume changed
                 LeAudioService leAudioService = mFactory.getLeAudioService();
                 if (leAudioService != null) {
-                    notifyDevicesVolumeChanged(
-                            mCallbacks,
-                            leAudioService.getGroupDevices(groupId),
-                            Optional.of(volume));
+                    synchronized (mCallbacks) {
+                        notifyDevicesVolumeChanged(
+                                mCallbacks,
+                                leAudioService.getGroupDevices(groupId),
+                                Optional.of(volume));
+                    }
                 } else {
                     Log.w(TAG, "leAudioService not available");
                 }
             } else {
                 // notify device volume changed
-                notifyDevicesVolumeChanged(mCallbacks, Arrays.asList(device), Optional.of(volume));
+                synchronized (mCallbacks) {
+                    notifyDevicesVolumeChanged(
+                            mCallbacks, Arrays.asList(device), Optional.of(volume));
+                }
             }
         }
 
