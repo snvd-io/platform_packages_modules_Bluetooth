@@ -1197,7 +1197,6 @@ public final class BluetoothLeAudio implements BluetoothProfile, AutoCloseable {
                 return service.isInbandRingtoneEnabled(mAttributionSource, groupId);
             } catch (RemoteException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
-                throw e.rethrowAsRuntimeException();
             }
         }
         return false;
@@ -1325,7 +1324,6 @@ public final class BluetoothLeAudio implements BluetoothProfile, AutoCloseable {
                 return service.getCodecStatus(groupId, mAttributionSource);
             } catch (RemoteException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
-                throw e.rethrowAsRuntimeException();
             }
         }
         return null;
@@ -1365,7 +1363,6 @@ public final class BluetoothLeAudio implements BluetoothProfile, AutoCloseable {
                         groupId, inputCodecConfig, outputCodecConfig, mAttributionSource);
             } catch (RemoteException e) {
                 Log.e(TAG, e.toString() + "\n" + Log.getStackTraceString(new Throwable()));
-                throw e.rethrowAsRuntimeException();
             }
         }
     }
