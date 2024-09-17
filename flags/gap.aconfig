@@ -80,13 +80,6 @@ flag {
 }
 
 flag {
-    name: "gatt_drop_acl_on_out_of_resources_fix"
-    namespace: "bluetooth"
-    description: "Remove ACL when there is not resource to handle more gatt connections."
-    bug: "325929235"
-}
-
-flag {
     name: "ble_scan_adv_metrics_redesign"
     namespace: "bluetooth"
     description: "Reimplement BLE scan and advertisement metrics logging."
