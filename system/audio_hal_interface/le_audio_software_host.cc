@@ -242,7 +242,7 @@ void LeAudioClientInterface::Sink::StopSession() {
   host::le_audio::LeAudioSinkTransport::stream_started = btle_stream_started_status::IDLE;
 }
 
-void LeAudioClientInterface::Sink::ConfirmStreamingRequest() {
+void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() {
   if (!host::le_audio::LeAudioSinkTransport::instance) {
     log::warn("instance is null");
     return;
@@ -275,9 +275,7 @@ void LeAudioClientInterface::Sink::ConfirmStreamingRequest() {
   }
 }
 
-void LeAudioClientInterface::Sink::ConfirmStreamingRequestV2() { ConfirmStreamingRequest(); }
-
-void LeAudioClientInterface::Sink::CancelStreamingRequest() {
+void LeAudioClientInterface::Sink::CancelStreamingRequestV2() {
   if (!host::le_audio::LeAudioSinkTransport::instance) {
     log::warn("instance is null");
     return;
@@ -307,8 +305,6 @@ void LeAudioClientInterface::Sink::CancelStreamingRequest() {
       break;
   }
 }
-
-void LeAudioClientInterface::Sink::CancelStreamingRequestV2() { CancelStreamingRequest(); }
 
 void LeAudioClientInterface::Sink::UpdateAudioConfigToHal(
         const ::le_audio::offload_config& offload_config) {}
@@ -397,7 +393,7 @@ void LeAudioClientInterface::Source::StopSession() {
   host::le_audio::LeAudioSourceTransport::stream_started = btle_stream_started_status::IDLE;
 }
 
-void LeAudioClientInterface::Source::ConfirmStreamingRequest() {
+void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() {
   if (!host::le_audio::LeAudioSourceTransport::instance) {
     log::warn("instance is null");
     return;
@@ -430,9 +426,7 @@ void LeAudioClientInterface::Source::ConfirmStreamingRequest() {
   }
 }
 
-void LeAudioClientInterface::Source::ConfirmStreamingRequestV2() { ConfirmStreamingRequest(); }
-
-void LeAudioClientInterface::Source::CancelStreamingRequest() {
+void LeAudioClientInterface::Source::CancelStreamingRequestV2() {
   if (!host::le_audio::LeAudioSourceTransport::instance) {
     log::warn("instance is null");
     return;
@@ -462,8 +456,6 @@ void LeAudioClientInterface::Source::CancelStreamingRequest() {
       break;
   }
 }
-
-void LeAudioClientInterface::Source::CancelStreamingRequestV2() { CancelStreamingRequest(); }
 
 void LeAudioClientInterface::Source::UpdateAudioConfigToHal(
         const ::le_audio::offload_config& offload_config) {}
