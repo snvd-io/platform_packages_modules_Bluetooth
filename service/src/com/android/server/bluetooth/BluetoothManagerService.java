@@ -174,30 +174,32 @@ class BluetoothManagerService {
     // and Airplane mode will have higher priority.
     @VisibleForTesting static final int BLUETOOTH_ON_AIRPLANE = 2;
 
+    // Map of apps registered to keep BLE scanning on.
+    private final Map<IBinder, ClientDeathRecipient> mBleApps = new ConcurrentHashMap<>();
+
+    private final BluetoothAdapterState mState = new BluetoothAdapterState();
+    private final List<Long> mCrashTimestamps = new ArrayList<>();
+    private final RemoteCallbackList<IBluetoothManagerCallback> mCallbacks =
+            new RemoteCallbackList<>();
+    private final BluetoothServiceBinder mBinder;
+    private final BluetoothHandler mHandler;
+    private final ContentResolver mContentResolver;
     private final Context mContext;
     private final Looper mLooper;
-
     private final UserManager mUserManager;
 
-    // Locks are not provided for mName and mAddress.
-    // They are accessed in handler or broadcast receiver, same thread context.
-    private String mAddress = null;
-    private String mName = null;
-    private final ContentResolver mContentResolver;
-    private final RemoteCallbackList<IBluetoothManagerCallback> mCallbacks =
-            new RemoteCallbackList<IBluetoothManagerCallback>();
-    private final BluetoothServiceBinder mBinder;
+    private final boolean mIsHearingAidProfileSupported;
 
-    private AdapterBinder mAdapter = null;
+    private String mAddress;
+    private String mName;
+    private AdapterBinder mAdapter;
+    private Context mCurrentUserContext;
 
     // used inside handler thread
     private boolean mQuietEnable = false;
     private boolean mEnable = false;
     private boolean mShutdownInProgress = false;
 
-    private Context mCurrentUserContext = null;
-
-    private final List<Long> mCrashTimestamps = new ArrayList<>();
     private int mCrashes = 0;
     private long mLastEnabledTime;
 
@@ -206,25 +208,60 @@ class BluetoothManagerService {
     private boolean mQuietEnableExternal = false;
     private boolean mEnableExternal = false;
 
-    // Map of apps registered to keep BLE scanning on.
-    private Map<IBinder, ClientDeathRecipient> mBleApps = new ConcurrentHashMap<>();
-
-    private final BluetoothAdapterState mState = new BluetoothAdapterState();
-
-    private final BluetoothHandler mHandler;
     private int mErrorRecoveryRetryCounter = 0;
 
-    private final boolean mIsHearingAidProfileSupported;
-
+    // The code in mBluetoothCallback is running on Binder thread.
+    // It must be posted on the local looper to prevent concurrent access.
     private final IBluetoothCallback mBluetoothCallback =
             new IBluetoothCallback.Stub() {
                 @Override
-                public void onBluetoothStateChange(int prevState, int newState)
-                        throws RemoteException {
+                public void onBluetoothStateChange(int prevState, int newState) {
                     mHandler.obtainMessage(MESSAGE_BLUETOOTH_STATE_CHANGE, prevState, newState)
                             .sendToTarget();
                 }
+
+                @Override
+                public void onAdapterNameChange(String name) {
+                    requireNonNull(name);
+                    if (name.isEmpty()) {
+                        throw new IllegalArgumentException("Invalid Empty name");
+                    }
+                    mHandler.post(() -> storeName(name));
+                }
+
+                @Override
+                public void onAdapterAddressChange(String address) {
+                    requireNonNull(address);
+                    if (!BluetoothAdapter.checkBluetoothAddress(address)) {
+                        throw new IllegalArgumentException("Invalid address");
+                    }
+                    mHandler.post(() -> storeAddress(address));
+                }
             };
+
+    private void storeName(String name) {
+        if (!Settings.Secure.putString(mContentResolver, Settings.Secure.BLUETOOTH_NAME, name)) {
+            Log.e(TAG, "storeName(" + name + "): Failed. Name is still " + mName);
+            return;
+        }
+        mName = name;
+        Log.v(TAG, "storeName(" + mName + "): Success");
+    }
+
+    private void storeAddress(String address) {
+        if (!Settings.Secure.putString(
+                mContentResolver, Settings.Secure.BLUETOOTH_ADDRESS, address)) {
+            Log.e(
+                    TAG,
+                    "storeAddress("
+                            + logAddress(address)
+                            + "): Failed. Address is still "
+                            + logAddress(mAddress));
+            return;
+        }
+        mAddress = address;
+        Log.v(TAG, "storeAddress(" + logAddress(mAddress) + "): Success");
+    }
 
     public void onUserRestrictionsChanged(UserHandle userHandle) {
         final boolean newBluetoothDisallowed =
@@ -472,13 +509,15 @@ class BluetoothManagerService {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     String action = intent.getAction();
-                    if (BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED.equals(action)) {
+                    if (!Flags.getNameAndAddressAsCallback()
+                            && BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED.equals(action)) {
                         String newName = intent.getStringExtra(BluetoothAdapter.EXTRA_LOCAL_NAME);
                         if (newName != null) {
                             Log.d(TAG, "Local name changed to: " + newName);
                             storeNameAndAddress(newName, null);
                         }
-                    } else if (BluetoothAdapter.ACTION_BLUETOOTH_ADDRESS_CHANGED.equals(action)) {
+                    } else if (!Flags.getNameAndAddressAsCallback()
+                            && BluetoothAdapter.ACTION_BLUETOOTH_ADDRESS_CHANGED.equals(action)) {
                         String newAddress =
                                 intent.getStringExtra(BluetoothAdapter.EXTRA_BLUETOOTH_ADDRESS);
                         if (newAddress != null) {
@@ -568,8 +607,10 @@ class BluetoothManagerService {
         }
 
         IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_BLUETOOTH_ADDRESS_CHANGED);
+        if (!Flags.getNameAndAddressAsCallback()) {
+            filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
+            filter.addAction(BluetoothAdapter.ACTION_BLUETOOTH_ADDRESS_CHANGED);
+        }
         filter.addAction(Intent.ACTION_SETTING_RESTORED);
         filter.addAction(Intent.ACTION_SHUTDOWN);
         filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
@@ -604,7 +645,16 @@ class BluetoothManagerService {
                 null,
                 mHandler);
 
-        loadStoredNameAndAddress();
+        if (Flags.getNameAndAddressAsCallback()) {
+            mName = Settings.Secure.getString(mContentResolver, Settings.Secure.BLUETOOTH_NAME);
+            mAddress =
+                    Settings.Secure.getString(mContentResolver, Settings.Secure.BLUETOOTH_ADDRESS);
+
+            Log.d(TAG, "Local adapter: Name=" + mName + ", Address=" + logAddress(mAddress));
+        } else {
+            loadStoredNameAndAddress();
+        }
+
         if (isBluetoothPersistedStateOn()) {
             Log.i(TAG, "Startup: Bluetooth persisted state is ON.");
             mEnableExternal = true;
@@ -682,7 +732,6 @@ class BluetoothManagerService {
         return mName != null && mAddress != null && mName.length() > 0 && mAddress.length() > 0;
     }
 
-    /** Retrieve the Bluetooth Adapter's name and address and save it in the local cache */
     private void loadStoredNameAndAddress() {
         if (BluetoothProperties.isAdapterAddressValidationEnabled().orElse(false)
                 && Settings.Secure.getInt(mContentResolver, Settings.Secure.BLUETOOTH_ADDR_VALID, 0)
@@ -1286,6 +1335,9 @@ class BluetoothManagerService {
 
     // Called from unsafe binder thread
     String getAddress() {
+        if (Flags.getNameAndAddressAsCallback()) {
+            return mAddress;
+        }
         // Copy to local variable to avoid race condition when checking for null
         AdapterBinder adapter = mAdapter;
         if (adapter != null) {
@@ -1304,6 +1356,9 @@ class BluetoothManagerService {
 
     // Called from unsafe binder thread
     String getName() {
+        if (Flags.getNameAndAddressAsCallback()) {
+            return mName;
+        }
         // Copy to local variable to avoid race condition when checking for null
         AdapterBinder adapter = mAdapter;
         if (adapter != null) {
@@ -1371,12 +1426,14 @@ class BluetoothManagerService {
                         mGetNameAddressOnly = true;
                         bindToAdapter();
                     } else if (mAdapter != null) {
-                        try {
-                            storeNameAndAddress(
-                                    mAdapter.getName(mContext.getAttributionSource()),
-                                    mAdapter.getAddress(mContext.getAttributionSource()));
-                        } catch (RemoteException e) {
-                            Log.e(TAG, "Unable to grab name or address", e);
+                        if (!Flags.getNameAndAddressAsCallback()) {
+                            try {
+                                storeNameAndAddress(
+                                        mAdapter.getName(mContext.getAttributionSource()),
+                                        mAdapter.getAddress(mContext.getAttributionSource()));
+                            } catch (RemoteException e) {
+                                Log.e(TAG, "Unable to grab name or address", e);
+                            }
                         }
                         if (mGetNameAddressOnly && !mEnable) {
                             unbindAndFinish();
