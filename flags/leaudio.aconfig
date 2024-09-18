@@ -68,14 +68,6 @@ flag {
 }
 
 flag {
-    name: "leaudio_callback_on_group_stream_status"
-    is_exported: true
-    namespace: "bluetooth"
-    description: "Add group stream status callback to notify about playing state"
-    bug: "323288608"
-}
-
-flag {
     name: "leaudio_multiple_vocs_instances_api"
     is_exported: true
     namespace: "bluetooth"
