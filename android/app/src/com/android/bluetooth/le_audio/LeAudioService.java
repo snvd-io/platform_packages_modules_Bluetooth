@@ -1543,7 +1543,7 @@ public class LeAudioService extends ProfileService {
     }
 
     /** Return true if group is primary - is active or was active before switch to broadcast */
-    private boolean isPrimaryGroup(int groupId) {
+    public boolean isPrimaryGroup(int groupId) {
         return groupId != IBluetoothLeAudio.LE_AUDIO_GROUP_ID_INVALID
                 && groupId == mUnicastGroupIdDeactivatedForBroadcastTransition;
     }
