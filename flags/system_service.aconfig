@@ -39,6 +39,16 @@ flag {
 }
 
 flag {
+    name: "get_name_and_address_as_callback"
+    namespace: "bluetooth"
+    description: "Getting the name and address is a non-oneway call. Instead inform the system server with callback"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+    bug: "368114370"
+}
+
+flag {
     name: "kill_instead_of_exit"
     namespace: "bluetooth"
     description: "There is no value in pretending we are exiting properly. This is a kill and we should express it this way when finishing the process"
