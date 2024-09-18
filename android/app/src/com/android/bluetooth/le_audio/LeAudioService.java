@@ -721,11 +721,11 @@ public class LeAudioService extends ProfileService {
         setLeAudioService(null);
 
         // Unregister broadcast callbacks
-        if (mBroadcastCallbacks != null) {
+        synchronized (mBroadcastCallbacks) {
             mBroadcastCallbacks.kill();
         }
 
-        if (mLeAudioCallbacks != null) {
+        synchronized (mLeAudioCallbacks) {
             mLeAudioCallbacks.kill();
         }
 
@@ -4883,7 +4883,7 @@ public class LeAudioService extends ProfileService {
     }
 
     private void notifyUnicastCodecConfigChanged(int groupId, BluetoothLeAudioCodecStatus status) {
-        if (mLeAudioCallbacks != null) {
+        synchronized (mLeAudioCallbacks) {
             int n = mLeAudioCallbacks.beginBroadcast();
             for (int i = 0; i < n; i++) {
                 try {
@@ -5661,7 +5661,7 @@ public class LeAudioService extends ProfileService {
             Objects.requireNonNull(source, "source cannot be null");
 
             LeAudioService service = getServiceAndEnforceConnect(source);
-            if ((service == null) || (service.mBroadcastCallbacks == null)) {
+            if (service == null) {
                 return;
             }
 
@@ -5678,7 +5678,7 @@ public class LeAudioService extends ProfileService {
             Objects.requireNonNull(source, "source cannot be null");
 
             LeAudioService service = getServiceAndEnforceConnect(source);
-            if ((service == null) || (service.mBroadcastCallbacks == null)) {
+            if (service == null) {
                 return;
             }
 
