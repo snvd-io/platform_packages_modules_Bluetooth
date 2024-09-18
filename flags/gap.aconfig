@@ -59,13 +59,6 @@ flag {
 }
 
 flag {
-    name: "le_periodic_scanning_reassembler"
-    namespace: "bluetooth"
-    description: "Enable reassembly of LE periodic advertising events"
-    bug: "324886466"
-}
-
-flag {
     name: "phy_to_native"
     namespace: "bluetooth"
     description: "Expose advertising PHY settings to native layer"

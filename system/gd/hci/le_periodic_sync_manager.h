@@ -373,12 +373,8 @@ public:
       return;
     }
 
-    auto complete_advertising_data =
-            com::android::bluetooth::flags::le_periodic_scanning_reassembler()
-                    ? scanning_reassembler_.ProcessPeriodicAdvertisingReport(
-                              sync_handle, DataStatus(event_view.GetDataStatus()),
-                              event_view.GetData())
-                    : event_view.GetData();
+    auto complete_advertising_data = scanning_reassembler_.ProcessPeriodicAdvertisingReport(
+            sync_handle, DataStatus(event_view.GetDataStatus()), event_view.GetData());
     if (!complete_advertising_data.has_value()) {
       return;
     }
