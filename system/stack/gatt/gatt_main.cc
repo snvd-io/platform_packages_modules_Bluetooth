@@ -1019,13 +1019,11 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
         gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
       }
 
-      if (com::android::bluetooth::flags::gatt_reconnect_on_bt_on_fix()) {
-        if (p_reg->direct_connect_request.count(p_tcb->peer_bda) > 0) {
-          gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
-          log::info("Removing device {} from the direct connect list of gatt_if {}",
-                    p_tcb->peer_bda, p_reg->gatt_if);
-          p_reg->direct_connect_request.erase(p_tcb->peer_bda);
-        }
+      if (p_reg->direct_connect_request.count(p_tcb->peer_bda) > 0) {
+        gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+        log::info("Removing device {} from the direct connect list of gatt_if {}", p_tcb->peer_bda,
+                  p_reg->gatt_if);
+        p_reg->direct_connect_request.erase(p_tcb->peer_bda);
       }
 
       if (p_reg->app_cb.p_conn_cb) {
@@ -1044,13 +1042,11 @@ static void gatt_send_conn_cback(tGATT_TCB* p_tcb) {
         gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
       }
 
-      if (com::android::bluetooth::flags::gatt_reconnect_on_bt_on_fix()) {
-        if (p_reg->direct_connect_request.count(p_tcb->peer_bda) > 0) {
-          gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
-          log::info("Removing device {} from the direct connect list of gatt_if {}",
-                    p_tcb->peer_bda, p_reg->gatt_if);
-          p_reg->direct_connect_request.erase(p_tcb->peer_bda);
-        }
+      if (p_reg->direct_connect_request.count(p_tcb->peer_bda) > 0) {
+        gatt_update_app_use_link_flag(p_reg->gatt_if, p_tcb, true, true);
+        log::info("Removing device {} from the direct connect list of gatt_if {}", p_tcb->peer_bda,
+                  p_reg->gatt_if);
+        p_reg->direct_connect_request.erase(p_tcb->peer_bda);
       }
 
       if (p_reg->app_cb.p_conn_cb) {
