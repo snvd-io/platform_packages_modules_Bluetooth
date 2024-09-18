@@ -341,6 +341,7 @@ android_app {
             "-Xep:EqualsHashCode:ERROR",
             "-Xep:FallThrough:ERROR",
             "-Xep:Finalize:ERROR",
+            "-Xep:GuardedBy:ERROR",
             "-Xep:HidingField:ERROR",
             "-Xep:InconsistentHashCode:ERROR",
             "-Xep:InlineMeInliner:ERROR",
