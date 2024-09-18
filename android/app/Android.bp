@@ -342,6 +342,7 @@ android_app {
             "-Xep:FallThrough:ERROR",
             "-Xep:Finalize:ERROR",
             "-Xep:HidingField:ERROR",
+            "-Xep:InconsistentHashCode:ERROR",
             "-Xep:InlineMeInliner:ERROR",
             "-Xep:InvalidBlockTag:ERROR",
             "-Xep:InvalidParam:ERROR",
