@@ -92,11 +92,6 @@ bool is_aidl_offload_encoding_session(bool is_broadcaster) {
 
 LeAudioClientInterface* LeAudioClientInterface::interface = nullptr;
 LeAudioClientInterface* LeAudioClientInterface::Get() {
-  if (osi_property_get_bool(BLUETOOTH_AUDIO_HAL_PROP_DISABLED, false)) {
-    log::error("BluetoothAudio HAL is disabled");
-    return nullptr;
-  }
-
   if (LeAudioClientInterface::interface == nullptr) {
     LeAudioClientInterface::interface = new LeAudioClientInterface();
   }
