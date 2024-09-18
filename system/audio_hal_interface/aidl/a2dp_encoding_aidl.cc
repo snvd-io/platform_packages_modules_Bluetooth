@@ -237,8 +237,6 @@ std::unique_ptr<::bluetooth::audio::aidl::a2dp::ProviderInfo> provider_info;
 // initialized
 uint16_t remote_delay = 0;
 
-bool btaudio_a2dp_disabled = false;
-bool is_configured = false;
 bool is_low_latency_mode_allowed = false;
 
 static BluetoothAudioCtrlAck a2dp_ack_to_bt_audio_ctrl_ack(BluetoothAudioStatus ack) {
@@ -384,15 +382,6 @@ bool a2dp_get_selected_hal_pcm_config(PcmConfiguration* pcm_config) {
          pcm_config->channelMode != ChannelMode::UNKNOWN;
 }
 
-// Checking if new bluetooth_audio is supported
-bool is_hal_force_disabled() {
-  if (!is_configured) {
-    btaudio_a2dp_disabled = osi_property_get_bool(BLUETOOTH_AUDIO_HAL_PROP_DISABLED, false);
-    is_configured = true;
-  }
-  return btaudio_a2dp_disabled;
-}
-
 }  // namespace
 
 bool update_codec_offloading_capabilities(
@@ -448,11 +437,6 @@ bool init(bluetooth::common::MessageLoopThread* /*message_loop*/) {
 
   if (software_hal_interface != nullptr) {
     return true;
-  }
-
-  if (is_hal_force_disabled()) {
-    log::error("BluetoothAudio HAL is disabled");
-    return false;
   }
 
   if (!BluetoothAudioClientInterface::is_aidl_available()) {
