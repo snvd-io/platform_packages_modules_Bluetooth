@@ -92,16 +92,6 @@ flag {
 }
 
 flag {
-    name: "leaudio_start_stream_race_fix"
-    namespace: "bluetooth"
-    description: "Fix possible race on start stream request"
-    bug: "325181889"
-    metadata {
-        purpose: PURPOSE_BUGFIX
-    }
-}
-
-flag {
     name: "run_ble_audio_ticks_in_worker_thread"
     namespace: "bluetooth"
     description: "Fix thread ownership issue in ble_audio_ticks"
@@ -143,26 +133,6 @@ flag {
     namespace: "bluetooth"
     description: "Add mono location as per Bluetooth Assigned Numbers"
     bug: "331139722"
-    metadata {
-        purpose: PURPOSE_BUGFIX
-    }
-}
-
-flag {
-    name: "leaudio_quick_leaudio_toggle_switch_fix"
-    namespace: "bluetooth"
-    description: "Fix for one device being not connected when toggle LeAudio is switch during bonding"
-    bug: "328595942"
-    metadata {
-        purpose: PURPOSE_BUGFIX
-    }
-}
-
-flag {
-    name: "leaudio_broadcast_assistant_handle_command_statuses"
-    namespace: "bluetooth"
-    description: "Handle command statuses to recover from errors"
-    bug: "331167629"
     metadata {
         purpose: PURPOSE_BUGFIX
     }
