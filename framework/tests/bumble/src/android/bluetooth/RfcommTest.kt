@@ -16,6 +16,7 @@
 package android.bluetooth
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.test_utils.EnableBluetoothRule
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -34,10 +35,16 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.timeout
+import org.mockito.kotlin.verify
 import pandora.RfcommProto
 import pandora.RfcommProto.ServerId
 import pandora.RfcommProto.StartServerRequest
 
+@SuppressLint("MissingPermission")
 @RunWith(AndroidJUnit4::class)
 @ExperimentalCoroutinesApi
 class RfcommTest {
@@ -52,7 +59,8 @@ class RfcommTest {
         AdoptShellPermissionsRule(
             InstrumentationRegistry.getInstrumentation().getUiAutomation(),
             Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_PRIVILEGED
+            Manifest.permission.BLUETOOTH_PRIVILEGED,
+            Manifest.permission.MODIFY_PHONE_STATE,
         )
 
     // Set up a Bumble Pandora device for the duration of the test.
@@ -63,12 +71,32 @@ class RfcommTest {
     private lateinit var mRemoteDevice: BluetoothDevice
     private lateinit var host: Host
     private var mConnectionCounter = 1
+    private var mProfileServiceListener = mock<BluetoothProfile.ServiceListener>()
 
     @Before
     fun setUp() {
         mRemoteDevice = mBumble.remoteDevice
         host = Host(mContext)
+        val bluetoothA2dp = getProfileProxy(mContext, BluetoothProfile.A2DP) as BluetoothA2dp
+        bluetoothA2dp.setConnectionPolicy(
+            mRemoteDevice,
+            BluetoothProfile.CONNECTION_POLICY_FORBIDDEN,
+        )
+        val bluetoothHfp = getProfileProxy(mContext, BluetoothProfile.HEADSET) as BluetoothHeadset
+        bluetoothHfp.setConnectionPolicy(
+            mRemoteDevice,
+            BluetoothProfile.CONNECTION_POLICY_FORBIDDEN,
+        )
+        val bluetoothHidHost =
+            getProfileProxy(mContext, BluetoothProfile.HID_HOST) as BluetoothHidHost
+        bluetoothHidHost.setConnectionPolicy(
+            mRemoteDevice,
+            BluetoothProfile.CONNECTION_POLICY_FORBIDDEN,
+        )
         host.createBondAndVerify(mRemoteDevice)
+        if (mRemoteDevice.isConnected) {
+            host.disconnectAndVerify(mRemoteDevice)
+        }
     }
 
     @After
@@ -311,6 +339,14 @@ class RfcommTest {
                     RfcommProto.StopServerRequest.newBuilder().setServer(response.server).build()
                 )
         }
+    }
+
+    private fun getProfileProxy(context: Context, profile: Int): BluetoothProfile {
+        mAdapter.getProfileProxy(context, mProfileServiceListener, profile)
+        val proxyCaptor = argumentCaptor<BluetoothProfile>()
+        verify(mProfileServiceListener, timeout(GRPC_TIMEOUT.toMillis()))
+            .onServiceConnected(eq(profile), proxyCaptor.capture())
+        return proxyCaptor.lastValue
     }
 
     companion object {
