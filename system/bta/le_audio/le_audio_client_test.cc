@@ -1397,7 +1397,7 @@ protected:
           ase.active = false;
           ase.state = types::AseState::BTA_LE_AUDIO_ASE_STATE_IDLE;
           ase.cis_id = 0;
-          ase.cis_conn_hdl = 0;
+          ase.cis_conn_hdl = bluetooth::le_audio::kInvalidCisConnHandle;
         }
       }
 
