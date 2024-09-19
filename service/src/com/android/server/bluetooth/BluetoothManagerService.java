@@ -151,6 +151,7 @@ class BluetoothManagerService {
     @VisibleForTesting static final int MESSAGE_RESTART_BLUETOOTH_SERVICE = 42;
     @VisibleForTesting static final int MESSAGE_BLUETOOTH_STATE_CHANGE = 60;
     @VisibleForTesting static final int MESSAGE_TIMEOUT_BIND = 100;
+    // TODO: b/368120237 delete MESSAGE_GET_NAME_AND_ADDRESS
     @VisibleForTesting static final int MESSAGE_GET_NAME_AND_ADDRESS = 200;
     @VisibleForTesting static final int MESSAGE_USER_SWITCHED = 300;
     @VisibleForTesting static final int MESSAGE_USER_UNLOCKED = 301;
@@ -1224,7 +1225,7 @@ class BluetoothManagerService {
         if (mEnableExternal && isBluetoothPersistedStateOnBluetooth() && !isSafeMode) {
             Log.i(TAG, "internalHandleOnBootPhase: Auto-enabling Bluetooth.");
             sendEnableMsg(mQuietEnableExternal, ENABLE_DISABLE_REASON_SYSTEM_BOOT);
-        } else if (!isNameAndAddressSet()) {
+        } else if (!Flags.removeOneTimeGetNameAndAddress() && !isNameAndAddressSet()) {
             Log.i(TAG, "internalHandleOnBootPhase: Getting adapter name and address");
             mHandler.sendEmptyMessage(MESSAGE_GET_NAME_AND_ADDRESS);
         } else {
@@ -1349,6 +1350,7 @@ class BluetoothManagerService {
 
     @VisibleForTesting
     class BluetoothHandler extends Handler {
+        // TODO: b/368120237 delete mGetNameAddressOnly
         boolean mGetNameAddressOnly = false;
 
         BluetoothHandler(Looper looper) {
@@ -1359,6 +1361,10 @@ class BluetoothManagerService {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MESSAGE_GET_NAME_AND_ADDRESS:
+                    if (Flags.removeOneTimeGetNameAndAddress()) {
+                        Log.e(TAG, "MESSAGE_GET_NAME_AND_ADDRESS is not supported anymore");
+                        break;
+                    }
                     Log.d(TAG, "MESSAGE_GET_NAME_AND_ADDRESS");
                     if (mAdapter == null && !isBinding()) {
                         Log.d(TAG, "Binding to service to get name and address");
@@ -1494,10 +1500,12 @@ class BluetoothManagerService {
 
                     propagateForegroundUserId(ActivityManager.getCurrentUser());
 
-                    if (!isNameAndAddressSet()) {
-                        mHandler.sendEmptyMessage(MESSAGE_GET_NAME_AND_ADDRESS);
-                        if (mGetNameAddressOnly) {
-                            return;
+                    if (!Flags.removeOneTimeGetNameAndAddress()) {
+                        if (!isNameAndAddressSet()) {
+                            mHandler.sendEmptyMessage(MESSAGE_GET_NAME_AND_ADDRESS);
+                            if (mGetNameAddressOnly) {
+                                return;
+                            }
                         }
                     }
 
