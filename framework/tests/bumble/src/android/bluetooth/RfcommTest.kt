@@ -60,21 +60,21 @@ class RfcommTest {
 
     @Rule(order = 2) @JvmField val enableBluetoothRule = EnableBluetoothRule(false, true)
 
-    private lateinit var mBumbleDevice: BluetoothDevice
+    private lateinit var mRemoteDevice: BluetoothDevice
     private lateinit var host: Host
     private var mConnectionCounter = 1
 
     @Before
     fun setUp() {
-        mBumbleDevice = mBumble.remoteDevice
+        mRemoteDevice = mBumble.remoteDevice
         host = Host(mContext)
-        host.createBondAndVerify(mBumbleDevice)
+        host.createBondAndVerify(mRemoteDevice)
     }
 
     @After
     fun tearDown() {
-        if (mAdapter.bondedDevices.contains(mBumbleDevice)) {
-            host.removeBondAndVerify(mBumbleDevice)
+        if (mAdapter.bondedDevices.contains(mRemoteDevice)) {
+            host.removeBondAndVerify(mRemoteDevice)
         }
         host.close()
     }
@@ -162,9 +162,9 @@ class RfcommTest {
     private fun createConnectAcceptSocket(
         isSecure: Boolean,
         server: ServerId,
-        uuid: String = TEST_UUID
+        uuid: String = TEST_UUID,
     ): Pair<BluetoothSocket, RfcommProto.RfcommConnection> {
-        val socket = createSocket(mBumbleDevice, isSecure, uuid)
+        val socket = createSocket(mRemoteDevice, isSecure, uuid)
 
         val connection = acceptSocket(server)
         Truth.assertThat(socket.isConnected).isTrue()
@@ -175,7 +175,7 @@ class RfcommTest {
     private fun createSocket(
         device: BluetoothDevice,
         isSecure: Boolean,
-        uuid: String
+        uuid: String,
     ): BluetoothSocket {
         val socket =
             if (isSecure) {
@@ -204,7 +204,7 @@ class RfcommTest {
     private fun startServer(
         name: String = TEST_SERVER_NAME,
         uuid: String = TEST_UUID,
-        block: (ServerId) -> Unit
+        block: (ServerId) -> Unit,
     ) {
         val request = StartServerRequest.newBuilder().setName(name).setUuid(uuid).build()
         val response = mBumble.rfcommBlocking().startServer(request)
