@@ -49,6 +49,16 @@ flag {
 }
 
 flag {
+    name: "remove_one_time_get_name_and_address"
+    namespace: "bluetooth"
+    description: "We don't need to start bluetooth the first time to get name & address. We can wait for a proper start"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+    bug: "368120237"
+}
+
+flag {
     name: "respect_ble_scan_setting"
     namespace: "bluetooth"
     description: "No longer allow BLE_ON mode when the settings is explicitly disable"
