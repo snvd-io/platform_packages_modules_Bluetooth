@@ -2465,13 +2465,17 @@ public:
     leAudioDevice->encrypted_ = false;
     leAudioDevice->acl_phy_update_done_ = false;
 
+    auto connection_state = leAudioDevice->GetConnectionState();
+
+    leAudioDevice->SetConnectionState(DeviceConnectState::DISCONNECTED);
+
     groupStateMachine_->ProcessHciNotifAclDisconnected(group, leAudioDevice);
 
     bluetooth::le_audio::MetricsCollector::Get()->OnConnectionStateChanged(
             leAudioDevice->group_id_, address, ConnectionState::DISCONNECTED,
             bluetooth::le_audio::ConnectionStatus::SUCCESS);
 
-    if (leAudioDevice->GetConnectionState() == DeviceConnectState::REMOVING) {
+    if (connection_state == DeviceConnectState::REMOVING) {
       if (leAudioDevice->group_id_ != bluetooth::groups::kGroupUnknown) {
         auto group = aseGroups_.FindById(leAudioDevice->group_id_);
         group_remove_node(group, address, true);
@@ -2480,7 +2484,6 @@ public:
       return;
     }
 
-    auto connection_state = leAudioDevice->GetConnectionState();
     log::info("{}, autoconnect {}, reason 0x{:02x}, connection state {}", leAudioDevice->address_,
               leAudioDevice->autoconnect_flag_, reason,
               bluetooth::common::ToString(connection_state));
@@ -2495,8 +2498,6 @@ public:
       scheduleRecoveryReconnect(address);
       return;
     }
-
-    leAudioDevice->SetConnectionState(DeviceConnectState::DISCONNECTED);
 
     /* Attempt background re-connect if disconnect was not initiated locally
      * or if autoconnect is set and device got disconnected because of some
