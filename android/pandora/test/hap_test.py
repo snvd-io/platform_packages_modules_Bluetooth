@@ -20,12 +20,13 @@ from bumble.profiles.hap import DynamicPresets, HearingAccessService, HearingAid
 
 from pandora_experimental.gatt_grpc_aio import GATT
 from pandora_experimental.hap_grpc_aio import HAP
+from pandora_experimental.hap_pb2 import PresetRecord as grpcPresetRecord  # type: ignore
 from pandora._utils import AioStream
 from pandora.security_pb2 import LE_LEVEL3
 from pandora.host_pb2 import RANDOM, AdvertiseResponse, Connection, DataTypes, ScanningResponse
 from mobly import base_test, signals
 from truth.truth import AssertThat  # type: ignore
-from typing import Tuple
+from typing import List, Tuple
 
 COMPLETE_LOCAL_NAME: str = "Bumble"
 HAP_UUID = GATT_HEARING_ACCESS_SERVICE.to_hex_str('-')
@@ -40,6 +41,23 @@ unavailable_preset = PresetRecord(
     7, "unavailable preset",
     PresetRecord.Property(PresetRecord.Property.Writable.CANNOT_BE_WRITTEN,
                           PresetRecord.Property.IsAvailable.IS_UNAVAILABLE))
+
+
+def toBumblePreset(grpc_preset: grpcPresetRecord) -> PresetRecord:
+    return PresetRecord(
+        grpc_preset.index,
+        grpc_preset.name,  # type: ignore
+        PresetRecord.Property(
+            PresetRecord.Property.Writable(grpc_preset.isWritable),  # type: ignore
+            PresetRecord.Property.IsAvailable(grpc_preset.isAvailable)))  # type: ignore
+
+
+def toBumblePresetList(grpc_preset_list: List[grpcPresetRecord]) -> List[PresetRecord]:  # type: ignore
+    return [toBumblePreset(grpc_preset) for grpc_preset in grpc_preset_list]  # type: ignore
+
+
+def get_server_preset_sorted(has: HearingAccessService) -> List[PresetRecord]:
+    return [has.preset_records[key] for key in sorted(has.preset_records.keys())]
 
 
 class HapTest(base_test.BaseTestClass):
@@ -136,6 +154,12 @@ class HapTest(base_test.BaseTestClass):
 
         return dut_connection_to_ref
 
+    async def assertIdentiqPresetInDutAndRef(self, dut_connection_to_ref: Connection):
+        remote_preset = toBumblePresetList(
+            (await self.hap_grpc.GetAllPresetRecords(connection=dut_connection_to_ref)).preset_record_list)
+        AssertThat(remote_preset).ContainsExactlyElementsIn(  # type: ignore
+            get_server_preset_sorted(self.has)).InOrder()  # type: ignore
+
     @asynchronous
     async def test_get_features(self) -> None:
         dut_connection_to_ref = await self.setupHapConnection()
@@ -143,3 +167,10 @@ class HapTest(base_test.BaseTestClass):
         features = hap.HearingAidFeatures_from_bytes(
             (await self.hap_grpc.GetFeatures(connection=dut_connection_to_ref)).features)
         AssertThat(features).IsEqualTo(self.has.server_features)  # type: ignore
+
+    @asynchronous
+    async def test_get_preset(self) -> None:
+        dut_connection_to_ref = await self.setupHapConnection()
+
+        await self.assertIdentiqPresetInDutAndRef(dut_connection_to_ref)
+

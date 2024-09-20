@@ -184,24 +184,24 @@ class Hap(val context: Context) : HAPImplBase(), Closeable {
     ) {
         grpcUnary<GetAllPresetRecordsResponse>(scope, responseObserver) {
             val device = request.connection.toBluetoothDevice(bluetoothAdapter)
+            Log.i(TAG, "getAllPresetRecords(${device})")
 
-            Log.i(TAG, "getAllPresetRecords")
-
-            val presetRecordList = arrayListOf<PresetRecord>()
-            val receivedPresetInfoList = bluetoothHapClient.getAllPresetInfo(device)
-
-            for (presetInfo in receivedPresetInfoList) {
-                presetRecordList.add(
-                    PresetRecord.newBuilder()
-                        .setIndex(presetInfo.getIndex())
-                        .setName(presetInfo.getName())
-                        .setIsWritable(presetInfo.isWritable())
-                        .setIsAvailable(presetInfo.isAvailable())
-                        .build()
+            GetAllPresetRecordsResponse.newBuilder()
+                .addAllPresetRecordList(
+                    bluetoothHapClient
+                        .getAllPresetInfo(device)
+                        .stream()
+                        .map { it: BluetoothHapPresetInfo ->
+                            PresetRecord.newBuilder()
+                                .setIndex(it.getIndex())
+                                .setName(it.getName())
+                                .setIsWritable(it.isWritable())
+                                .setIsAvailable(it.isAvailable())
+                                .build()
+                        }
+                        .toList()
                 )
-            }
-
-            GetAllPresetRecordsResponse.newBuilder().addAllPresetRecordList(presetRecordList).build()
+                .build()
         }
     }
 
