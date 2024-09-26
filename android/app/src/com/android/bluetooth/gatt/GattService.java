@@ -2139,8 +2139,10 @@ public class GattService extends ProfileService {
                 clientIf,
                 BluetoothProtoEnums.CONNECTION_STATE_CONNECTING,
                 -1);
+
+        int preferredMtu = 0;
         mNativeInterface.gattClientConnect(
-                clientIf, address, addressType, isDirect, transport, opportunistic, phy);
+                clientIf, address, addressType, isDirect, transport, opportunistic, phy, preferredMtu);
     }
 
     @RequiresPermission(BLUETOOTH_CONNECT)

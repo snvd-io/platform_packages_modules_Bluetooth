@@ -1178,7 +1178,10 @@ void GATT_StartIf(tGATT_IF gatt_if);
                                 tBLE_ADDR_TYPE addr_type, tBTM_BLE_CONN_TYPE connection_type,
                                 tBT_TRANSPORT transport, bool opportunistic,
                                 uint8_t initiating_phys);
-
+[[nodiscard]] bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                                tBLE_ADDR_TYPE addr_type, tBTM_BLE_CONN_TYPE connection_type,
+                                tBT_TRANSPORT transport, bool opportunistic,
+                                uint8_t initiating_phys, uint16_t preferred_transport);
 /*******************************************************************************
  *
  * Function         GATT_CancelConnect

@@ -1454,7 +1454,7 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYP
 
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
                   tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic,
-                  uint8_t initiating_phys) {
+                  uint8_t initiating_phys, uint16_t /* preferred_mtu */) {
   /* Make sure app is registered */
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   if (!p_reg) {
@@ -1548,13 +1548,21 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBLE_ADDR_TYPE ad
                   tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic) {
   constexpr uint8_t kPhyLe1M = 0x01;  // From the old controller shim.
   uint8_t phy = kPhyLe1M;
-  return GATT_Connect(gatt_if, bd_addr, addr_type, connection_type, transport, opportunistic, phy);
+  return GATT_Connect(gatt_if, bd_addr, addr_type, connection_type, transport, opportunistic, phy,
+                      0);
 }
 
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYPE connection_type,
                   tBT_TRANSPORT transport, bool opportunistic, uint8_t initiating_phys) {
   return GATT_Connect(gatt_if, bd_addr, BLE_ADDR_PUBLIC, connection_type, transport, opportunistic,
-                      initiating_phys);
+                      initiating_phys, 0);
+}
+
+bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYPE connection_type,
+                  tBT_TRANSPORT transport, bool opportunistic, uint8_t initiating_phys,
+                  uint16_t preferred_mtu) {
+  return GATT_Connect(gatt_if, bd_addr, BLE_ADDR_PUBLIC, connection_type, transport, opportunistic,
+                      initiating_phys, preferred_mtu);
 }
 
 /*******************************************************************************

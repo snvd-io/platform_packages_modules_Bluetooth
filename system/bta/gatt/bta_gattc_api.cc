@@ -142,7 +142,7 @@ void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
 
 void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda, tBLE_ADDR_TYPE addr_type,
                     tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic,
-                    uint8_t initiating_phys) {
+                    uint8_t initiating_phys, uint16_t preferred_mtu) {
   tBTA_GATTC_DATA data = {
           .api_conn =
                   {
@@ -157,10 +157,18 @@ void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda, tBLE_ADDR_
                           .initiating_phys = initiating_phys,
                           .opportunistic = opportunistic,
                           .remote_addr_type = addr_type,
+                          .preferred_mtu = preferred_mtu,
                   },
   };
 
   post_on_bt_main([data]() { bta_gattc_process_api_open(&data); });
+}
+
+void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda, tBLE_ADDR_TYPE addr_type,
+                    tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic,
+                    uint8_t initiating_phys) {
+  BTA_GATTC_Open(client_if, remote_bda, addr_type, connection_type, transport, opportunistic,
+                 initiating_phys, 0);
 }
 
 void BTA_GATTC_Open(tGATT_IF client_if, const RawAddress& remote_bda,
