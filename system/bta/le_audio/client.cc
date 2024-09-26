@@ -4570,8 +4570,6 @@ public:
     /* Set the remote sink metadata context from the playback tracks metadata */
     local_metadata_context_types_.source = GetAudioContextsFromSourceMetadata(source_metadata);
 
-    local_metadata_context_types_.sink =
-            ChooseMetadataContextType(local_metadata_context_types_.sink);
     local_metadata_context_types_.source =
             ChooseMetadataContextType(local_metadata_context_types_.source);
 
