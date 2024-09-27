@@ -480,7 +480,7 @@ static void bta_gattc_init_bk_conn(const tBTA_GATTC_API_OPEN* p_data, tBTA_GATTC
 
   /* always call open to hold a connection */
   if (!GATT_Connect(p_data->client_if, p_data->remote_bda, BLE_ADDR_PUBLIC, p_data->connection_type,
-                    p_data->transport, false, 1, p_data->preferred_mtu)) {
+                    p_data->transport, false, LE_PHY_1M, p_data->preferred_mtu)) {
     log::error("Unable to connect to remote bd_addr={}", p_data->remote_bda);
     bta_gattc_send_open_cback(p_clreg, GATT_ILLEGAL_PARAMETER, p_data->remote_bda,
                               GATT_INVALID_CONN_ID, BT_TRANSPORT_LE, 0);

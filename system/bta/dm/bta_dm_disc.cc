@@ -138,7 +138,7 @@ struct gatt_interface_t {
                 [](tGATT_IF client_if, const RawAddress& remote_bda,
                    tBTM_BLE_CONN_TYPE connection_type, bool opportunistic, uint16_t preferred_mtu) {
                   BTA_GATTC_Open(client_if, remote_bda, BLE_ADDR_PUBLIC, connection_type,
-                                 BT_TRANSPORT_LE, opportunistic, 1, preferred_mtu);
+                                 BT_TRANSPORT_LE, opportunistic, LE_PHY_1M, preferred_mtu);
                 },
 };
 

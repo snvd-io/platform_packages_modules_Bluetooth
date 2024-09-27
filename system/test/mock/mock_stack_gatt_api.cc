@@ -241,7 +241,7 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYP
                   tBT_TRANSPORT transport, bool opportunistic) {
   inc_func_call_count(__func__);
   return test::mock::stack_gatt_api::GATT_Connect(gatt_if, bd_addr, 0, connection_type, transport,
-                                                  opportunistic, 0, 0);
+                                                  opportunistic, LE_PHY_1M, 0);
 }
 
 // END mockcify generation

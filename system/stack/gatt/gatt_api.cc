@@ -1445,13 +1445,6 @@ void GATT_StartIf(tGATT_IF gatt_if) {
  *                  failure.
  *
  ******************************************************************************/
-bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYPE connection_type,
-                  tBT_TRANSPORT transport, bool opportunistic) {
-  constexpr uint8_t kPhyLe1M = 0x01;  // From the old controller shim.
-  uint8_t phy = kPhyLe1M;
-  return GATT_Connect(gatt_if, bd_addr, connection_type, transport, opportunistic, phy);
-}
-
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
                   tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys, uint16_t preferred_mtu) {
@@ -1553,25 +1546,10 @@ bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBLE_ADDR_TYPE ad
   return ret;
 }
 
-bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
-                  tBTM_BLE_CONN_TYPE connection_type, tBT_TRANSPORT transport, bool opportunistic) {
-  constexpr uint8_t kPhyLe1M = 0x01;  // From the old controller shim.
-  uint8_t phy = kPhyLe1M;
-  return GATT_Connect(gatt_if, bd_addr, addr_type, connection_type, transport, opportunistic, phy,
-                      0);
-}
-
 bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYPE connection_type,
-                  tBT_TRANSPORT transport, bool opportunistic, uint8_t initiating_phys) {
+                  tBT_TRANSPORT transport, bool opportunistic) {
   return GATT_Connect(gatt_if, bd_addr, BLE_ADDR_PUBLIC, connection_type, transport, opportunistic,
-                      initiating_phys, 0);
-}
-
-bool GATT_Connect(tGATT_IF gatt_if, const RawAddress& bd_addr, tBTM_BLE_CONN_TYPE connection_type,
-                  tBT_TRANSPORT transport, bool opportunistic, uint8_t initiating_phys,
-                  uint16_t preferred_mtu) {
-  return GATT_Connect(gatt_if, bd_addr, BLE_ADDR_PUBLIC, connection_type, transport, opportunistic,
-                      initiating_phys, preferred_mtu);
+                      LE_PHY_1M, 0);
 }
 
 /*******************************************************************************

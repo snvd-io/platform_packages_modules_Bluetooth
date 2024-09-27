@@ -101,7 +101,7 @@ gatt_interface_t default_gatt_interface = {
                           ADDRESS_TO_LOGGABLE_CSTR(remote_bda), client_if, connection_type,
                           (opportunistic) ? 'T' : 'F'));
                   BTA_GATTC_Open(client_if, remote_bda, BLE_ADDR_PUBLIC, connection_type,
-                                 BT_TRANSPORT_LE, opportunistic, 1, preferred_mtu);
+                                 BT_TRANSPORT_LE, opportunistic, LE_PHY_1M, preferred_mtu);
                 },
 };
 
