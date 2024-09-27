@@ -4701,6 +4701,61 @@ TEST_F(StateMachineTest, testConfigureDataPathForHost) {
            .source = types::AudioContexts(context_type)}));
 }
 
+TEST_F(StateMachineTest, testRemoveDataPathWhenSingleBudDisconnectsOnGattTimeout) {
+  const auto context_type = kContextTypeConversational;
+  const int leaudio_group_id = 4;
+  const auto num_devices = 2;
+  channel_count_ = kLeAudioCodecChannelCountSingleChannel | kLeAudioCodecChannelCountTwoChannel;
+
+  /* Scenario
+   * 1. Two buds are streaming
+   * 2. There is a GATT timeout on one of the device which cause disconnection but profile will get
+   * fist GATT Close and later CIS Disconnection Timeout
+   *
+   * 3. Verify that Data Path is removed for the disconnected CIS
+   */
+
+  ContentControlIdKeeper::GetInstance()->SetCcid(kContextTypeConversational, call_ccid);
+
+  // Prepare multiple fake connected devices in a group
+  auto* group = PrepareSingleTestDeviceGroup(leaudio_group_id, context_type, num_devices);
+  ASSERT_EQ(group->Size(), num_devices);
+
+  /* Since we prepared device with Ringtone context in mind, only one ASE
+   * should have been configured.
+   */
+  PrepareConfigureCodecHandler(group);
+  PrepareConfigureQosHandler(group);
+  PrepareEnableHandler(group);
+  PrepareReceiverStartReadyHandler(group);
+
+  EXPECT_CALL(*mock_iso_manager_,
+              SetupIsoDataPath(_, dataPathIsEq(bluetooth::hci::iso_manager::kIsoDataPathHci)))
+          .Times(4);
+
+  InjectInitialIdleNotification(group);
+
+  // Start the configuration and stream Media content
+  ASSERT_TRUE(LeAudioGroupStateMachine::Get()->StartStream(
+          group, context_type,
+          {.sink = types::AudioContexts(context_type),
+           .source = types::AudioContexts(context_type)}));
+
+  testing::Mock::VerifyAndClearExpectations(mock_iso_manager_);
+
+  EXPECT_CALL(*mock_iso_manager_,
+              RemoveIsoDataPath(
+                      _, bluetooth::hci::iso_manager::kRemoveIsoDataPathDirectionOutput |
+                                 bluetooth::hci::iso_manager::kRemoveIsoDataPathDirectionInput))
+          .Times(1);
+
+  auto device = group->GetFirstDevice();
+  InjectAclDisconnected(group, device);
+  InjectCisDisconnected(group, device, HCI_ERR_CONN_CAUSE_LOCAL_HOST);
+
+  testing::Mock::VerifyAndClearExpectations(mock_iso_manager_);
+}
+
 TEST_F(StateMachineTestAdsp, testConfigureDataPathForAdsp) {
   const auto context_type = kContextTypeRingtone;
   const int leaudio_group_id = 4;
