@@ -1900,8 +1900,10 @@ void gatt_cleanup_upon_disc(const RawAddress& bda, tGATT_DISCONN_REASON reason,
 
   gatt_set_ch_state(p_tcb, GATT_CH_CLOSE);
 
-  /* Notify EATT about disconnection. */
-  EattExtension::GetInstance()->Disconnect(p_tcb->peer_bda);
+  if (transport == BT_TRANSPORT_LE) {
+    /* Notify EATT about disconnection. */
+    EattExtension::GetInstance()->Disconnect(p_tcb->peer_bda);
+  }
 
   for (auto clcb_it = gatt_cb.clcb_queue.begin(); clcb_it != gatt_cb.clcb_queue.end();) {
     if (clcb_it->p_tcb != p_tcb) {
