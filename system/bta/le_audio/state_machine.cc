@@ -766,6 +766,10 @@ public:
 
     /* It is possible that ACL disconnection came before CIS disconnect event */
     for (auto& ase : leAudioDevice->ases_) {
+      if (ase.data_path_state == DataPathState::CONFIGURED ||
+          ase.data_path_state == DataPathState::CONFIGURING) {
+        RemoveDataPathByCisHandle(leAudioDevice, ase.cis_conn_hdl);
+      }
       group->RemoveCisFromStreamIfNeeded(leAudioDevice, ase.cis_conn_hdl);
     }
 
